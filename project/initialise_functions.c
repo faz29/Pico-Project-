@@ -2,6 +2,8 @@
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
 #include "pico/cyw43_arch.h"
+#include "hardware/uart.h"
+
 
 
 void i2c_initialisation(i2c_inst_t *port,uint freq, int SDA_pin,int SCL_pin){
@@ -21,7 +23,7 @@ int P;
     }
 
     printf("I2C Initialised at %dkHz on port %d with SDA on pin %d and SCL on pin %d !!\n", freq/1000, P,SDA_pin,SCL_pin);
-// For more examples of I2C use see https://github.com/raspberrypi/pico-examples/tree/master/i2c
+
 }
 
 uint8_t wifi_chip_initialisation(void){
@@ -29,8 +31,17 @@ uint8_t wifi_chip_initialisation(void){
     if (cyw43_arch_init()) {
         printf("Wi-Fi init failed\n");
         return -1;
-    }
+    }   
     else{
         printf("Wifi chip initialised !!\n");
     }
+}
+
+void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin){
+    //set up the UART TX and RX pins
+    gpio_set_function(tx_pin, UART_FUNCSEL_NUM(uart_port,tx_pin));
+    gpio_set_function(rx_pin, UART_FUNCSEL_NUM(uart_port,rx_pin));    
+
+    uart_init(uart_port, uart_Brate);
+    printf("UART initialised at %d baud rate with TX on pin %d and RX on pin %d !!\n", uart_Brate, tx_pin, rx_pin);
 }
