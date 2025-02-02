@@ -27,17 +27,23 @@ int main() {
     uart_initialisation(uart0,BAUD_RATE,UART_TX,UART_RX);
 
     printf("Hello, world! \n");
-
     
-
+    uint8_t buf[1];
 
     while (true) {
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);  
         sleep_ms(250);
-
+        
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);  
         sleep_ms(500);
 
+        
+        //read uart
+        uart_read_blocking(uart0, buf, 1);
+        
+        
+        printf("data stored in buf: %d\n",buf[0]);
+        sleep_ms(150);
     }
 }
 
