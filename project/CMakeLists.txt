@@ -61,6 +61,7 @@ target_link_libraries(project
         hardware_watchdog
         hardware_clocks
         pico_cyw43_arch_none
+        hardware_pwm
         )
 
 pico_add_extra_outputs(project)

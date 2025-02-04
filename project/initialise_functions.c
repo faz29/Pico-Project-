@@ -3,6 +3,7 @@
 #include "hardware/i2c.h"
 #include "pico/cyw43_arch.h"
 #include "hardware/uart.h"
+#include "hardware/pwm.h"
 
 
 
@@ -37,11 +38,33 @@ uint8_t wifi_chip_initialisation(void){
     }
 }
 
-void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin){
+void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin, int data, int stop){    
+    
     //set up the UART TX and RX pins
     gpio_set_function(tx_pin, UART_FUNCSEL_NUM(uart_port,tx_pin));
     gpio_set_function(rx_pin, UART_FUNCSEL_NUM(uart_port,rx_pin));    
 
+    
+    uart_set_hw_flow(uart_port, false, false);
+    uart_set_format(uart_port, data, stop, UART_PARITY_NONE);
+    uart_set_fifo_enabled(uart_port, true);
+
     uart_init(uart_port, uart_Brate);
     printf("UART initialised at %d baud rate with TX on pin %d and RX on pin %d !!\n", uart_Brate, tx_pin, rx_pin);
+}
+
+void pwm_initialisation(int pwm_pin,int pulse_width){
+    gpio_set_function(pwm_pin,GPIO_FUNC_PWM);
+    uint slice = pwm_gpio_to_slice_num(pwm_pin);
+
+    //clk div of 125 gives a frequency of 1MHz meaning a per tick width of 1us.
+    pwm_set_clkdiv(slice, 125);
+    pwm_set_chan_level(slice,0,pulse_width);
+
+    pwm_set_enabled(slice,true);    
+
+
+
+    
+
 }

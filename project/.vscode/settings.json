@@ -38,6 +38,13 @@
     "raspberry-pi-pico.ninjaPath": "${HOME}/.pico-sdk/ninja/v1.12.1/ninja",
     "files.associations": {
         "initialise_functions.h": "c",
-        "cyw43_arch.h": "c"
+        "cyw43_arch.h": "c",
+        "irq.h": "c",
+        "multicore.h": "c",
+        "gpio.h": "c",
+        "uart.h": "c",
+        "interp.h": "c",
+        "stdlib.h": "c",
+        "i2c.h": "c"
     }
 }
