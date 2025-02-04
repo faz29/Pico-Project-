@@ -24,9 +24,10 @@ int main() {
 
     wifi_chip_initialisation();
 
-    uart_initialisation(uart0,BAUD_RATE,UART_TX,UART_RX);
+    uart_initialisation(uart0, BAUD_RATE, UART_TX, UART_RX, DATA_BITS, STOP_BITS);
 
     printf("Hello, world! \n");
+    uart_is_enabled(uart0);
     
     uint8_t buf[1];
 
@@ -39,11 +40,11 @@ int main() {
 
         
         //read uart
-        uart_read_blocking(uart0, buf, 1);
+        uart_read_blocking(uart0, buf, 10);
         
         
-        printf("data stored in buf: %d\n",buf[0]);
-        sleep_ms(150);
+        printf("data stored in buf:  char: %c    int: %d   \n",buf[0],buf[0]);
+        sleep_ms(1000);
     }
 }
 

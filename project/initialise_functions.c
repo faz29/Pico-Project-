@@ -4,8 +4,6 @@
 #include "pico/cyw43_arch.h"
 #include "hardware/uart.h"
 
-
-
 void i2c_initialisation(i2c_inst_t *port,uint freq, int SDA_pin,int SCL_pin){
 // I2C Initialisation. Using it at 400Khz.
     i2c_init(port, freq);
@@ -37,11 +35,17 @@ uint8_t wifi_chip_initialisation(void){
     }
 }
 
-void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin){
+void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin, int data, int stop){
     //set up the UART TX and RX pins
     gpio_set_function(tx_pin, UART_FUNCSEL_NUM(uart_port,tx_pin));
     gpio_set_function(rx_pin, UART_FUNCSEL_NUM(uart_port,rx_pin));    
 
+    uart_set_hw_flow(uart_port, false, false);
+    uart_set_format(uart_port, data, stop, UART_PARITY_NONE);
+    uart_set_fifo_enabled(uart_port, true);
+
     uart_init(uart_port, uart_Brate);
     printf("UART initialised at %d baud rate with TX on pin %d and RX on pin %d !!\n", uart_Brate, tx_pin, rx_pin);
+
+
 }
