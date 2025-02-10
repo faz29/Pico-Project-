@@ -39,7 +39,7 @@ int main() {
         sleep_ms(500);
 
         
-        //read uart
+        //read uart 
         uart_read_blocking(uart0, buf, 10);
         
         
