@@ -39,6 +39,7 @@
     "files.associations": {
         "initialise_functions.h": "c",
         "cyw43_arch.h": "c",
+<<<<<<< HEAD
         "irq.h": "c",
         "multicore.h": "c",
         "gpio.h": "c",
@@ -46,5 +47,8 @@
         "interp.h": "c",
         "stdlib.h": "c",
         "i2c.h": "c"
+=======
+        "uart.h": "c"
+>>>>>>> 6ded87106021ef35ab460688d599c3402e2b9255
     }
 }

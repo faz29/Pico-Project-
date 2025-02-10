@@ -22,13 +22,18 @@ int main() {
 
     //wifi_chip_initialisation();
 
+<<<<<<< HEAD
     uart_initialisation(uart0,BAUD_RATE, UART_TX, UART_RX,8, 1);
     
     pwm_initialisation(10,0,0);
 
     arm_sequence(10,0,6,500);
+=======
+    uart_initialisation(uart0, BAUD_RATE, UART_TX, UART_RX, DATA_BITS, STOP_BITS);
+>>>>>>> 6ded87106021ef35ab460688d599c3402e2b9255
 
     printf("Hello, world! \n");
+    uart_is_enabled(uart0);
     
 
     uint8_t index = 0;
@@ -71,6 +76,7 @@ int main() {
         // printf("enter pulse width between 125 and 250 us");
         // scanf("%d",&pause);
         
+<<<<<<< HEAD
        // pwm_set_chan_level(slice,0,pause)        
 
             //working code to read 1 byte
@@ -122,6 +128,14 @@ int main() {
           // uart_read_blocking(uart0,(throttlePtr+3),1);
           // uart_read_blocking(uart0,(throttlePtr+4),1);
 
+=======
+        //read uart 
+        uart_read_blocking(uart0, buf, 10);
+        
+        
+        printf("data stored in buf:  char: %c    int: %d   \n",buf[0],buf[0]);
+        sleep_ms(1000);
+>>>>>>> 6ded87106021ef35ab460688d599c3402e2b9255
     }
 
 
