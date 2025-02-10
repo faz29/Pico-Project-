@@ -91,6 +91,8 @@ int main() {
   if (uart_is_readable(uart0) == true){
     uart_read_blocking(uart0,throttleArray,5);
 
+
+
     //if (tempThrottle[0] == 0xFF){   //this will test the first bit incase picked up in the middle of transmission
 
         //art_read_blocking(uart0,(tempPtr),4);
@@ -106,7 +108,7 @@ int main() {
       
         //  *(throttlePtr+3) = (throttleArray[4]>>24);
         //   printf("%d ",*(throttlePtr+3));
-      
+        joined = 0;
           for (int j = 1; j<5; j++){
             joined = joined + (*(throttlePtr+j)<<(8*j)); 
                 }
