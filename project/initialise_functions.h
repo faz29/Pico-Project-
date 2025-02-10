@@ -21,3 +21,7 @@ void i2c_initialisation(i2c_inst_t *port,uint freq, int SDA_pin,int SCL_pin);
 uint8_t wifi_chip_initialisation(void);
 
 void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin, int data, int stop);  
+
+void pwm_initialisation(int pwm_pin,uint chan,int pulse_width);
+
+void arm_sequence(int pwm_pin,uint chan,int ledPin, int arm_sleep);
