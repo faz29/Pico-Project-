@@ -5,6 +5,8 @@
 #include "hardware/uart.h"
 #include "hardware/pwm.h"
 
+
+
 void i2c_initialisation(i2c_inst_t *port,uint freq, int SDA_pin,int SCL_pin){
 // I2C Initialisation. Using it at 400Khz.
     i2c_init(port, freq);
@@ -36,17 +38,12 @@ uint8_t wifi_chip_initialisation(void){
     }
 }
 
-<<<<<<< HEAD
 void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin, int data_bits, int stop_bits){    
     
-=======
-void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin, int data, int stop){
->>>>>>> 6ded87106021ef35ab460688d599c3402e2b9255
     //set up the UART TX and RX pins
     gpio_set_function(tx_pin, UART_FUNCSEL_NUM(uart_port,tx_pin));
     gpio_set_function(rx_pin, UART_FUNCSEL_NUM(uart_port,rx_pin));    
 
-<<<<<<< HEAD
     
     uart_set_hw_flow(uart_port, false, false);
     uart_set_format(uart_port, data_bits, stop_bits, UART_PARITY_NONE);
@@ -83,14 +80,3 @@ void arm_sequence(int pwm_pin,uint chan,int ledPin, int arm_sleep){
 
     
 
-=======
-    uart_set_hw_flow(uart_port, false, false);
-    uart_set_format(uart_port, data, stop, UART_PARITY_NONE);
-    uart_set_fifo_enabled(uart_port, true);
-
-    uart_init(uart_port, uart_Brate);
-    printf("UART initialised at %d baud rate with TX on pin %d and RX on pin %d !!\n", uart_Brate, tx_pin, rx_pin);
-
-
-}
->>>>>>> 6ded87106021ef35ab460688d599c3402e2b9255
