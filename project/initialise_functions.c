@@ -4,6 +4,7 @@
 #include "pico/cyw43_arch.h"
 #include "hardware/uart.h"
 #include "hardware/pwm.h"
+#include "hardware/gpio.h"
 
 
 
@@ -73,7 +74,9 @@ void arm_sequence(int pwm_pin,uint chan,int ledPin, int arm_sleep){
     sleep_ms(arm_sleep);
     pwm_set_chan_level(slice,chan,125); 
 
-    //turn on Led when arming is complete 
+    //turn on Led when arming is complete
+    gpio_init(ledPin);
+    gpio_set_dir(ledPin,GPIO_OUT);
     gpio_put(ledPin,1);
     printf("Arm sequence complete!\n");
 }

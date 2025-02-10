@@ -53,25 +53,13 @@ void onDisconnectedController(ControllerPtr ctl) {
 
 
 
-
-
-
-
-
 // ========= SEE CONTROLLER VALUES IN SERIAL MONITOR ========= //
 
 //We will use this section to send controller data over UART//
 
 
-void SplitBytes(){
-  
-
-};
-
-uint8_t throttleArray[5];
+uint8_t throttleArray[4];
 uint8_t* throttlePtr = throttleArray; 
-
-
 
 
 
@@ -87,18 +75,34 @@ void dumpGamepad(ControllerPtr ctl) {
 //sends start bit and splits uint32_t into 4 bytes
 
 
+      uint32_t throttle_value = ctl->throttle();
 
-  PicoSerial.write(0xFF);
-  Serial.print(0xFF);
-    for (int i = 0; i<4; i++){
-          *(throttlePtr+i) = ((ctl->throttle())>>(8*i))&0xFF; 
-          PicoSerial.write(*(throttlePtr+i));
-          Serial.print(*(throttlePtr+i));
+      Serial.print("\nStart byte: ");
+      Serial.print(0xFF);
+      Serial.print("   ");
 
-    }
-  // uint8_t throttlestart = 0xFF;
-  // PicoSerial.write(throttlestart); 
-  // PicoSerial.write(ctl->throttle());
+      PicoSerial.write(0xFF);
+      PicoSerial.write((throttle_value >> 24) & 0xFF);  // First byte
+      PicoSerial.write((throttle_value >> 16) & 0xFF);  // Second byte
+      PicoSerial.write((throttle_value >> 8) & 0xFF);   // Third byte
+      PicoSerial.write(throttle_value & 0xFF);          // Fourth byte
+        
+  //PicoSerial.write(ctl->throttle());
+
+    // for (int i = 0; i<4; i++){
+    //       *(throttlePtr+i) = ((ctl->throttle())>>(8*i))&0xFF; 
+    //       PicoSerial.write(*(throttlePtr+i));
+    //       Serial.print(*(throttlePtr + i));
+    //       Serial.print(" ");
+
+    // }
+
+
+
+  Serial.print("\nThrottle: ");
+
+
+  Serial.print(ctl->throttle());
     
 
 
@@ -372,9 +376,9 @@ void loop() {
   // Send message over UART
   //mySerial.println(counter);
   
-  //Serial.println("Sent: " + String(counter));
+  //Serial.println( "Sent: " + String(counter));
   // increment the counter
     
     // vTaskDelay(1);
-  delay(500);
+  delay(1);
 }

@@ -25,7 +25,7 @@ int main() {
     uart_initialisation(uart0,BAUD_RATE, UART_TX, UART_RX,8, 1);
     
     pwm_initialisation(10,0,0);
-
+        
     arm_sequence(10,0,6,500);
 
     printf("Hello, world! \n");
@@ -45,7 +45,8 @@ int main() {
 
 
     uint8_t throttleArray[5];
-    uint8_t* throttlePtr = throttleArray; 
+    uint8_t* throttlePtr = throttleArray;
+    uint8_t buffer[10];
     
     uint32_t joined = 0;
 
@@ -56,11 +57,10 @@ int main() {
     int32_t accelX = 0;
     int32_t accelY = 0;
     int32_t accelZ = 0;
-    
-
-
+  
 
     while (true) {
+        //printf("\e[1;1H\e[2J");
         //cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);  
         //sleep_ms(250);  
         //cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);  
@@ -88,50 +88,45 @@ int main() {
         printf("\n");
 */
 
-  if (uart_is_readable(uart0) == true){
-    uart_read_blocking(uart0,throttleArray,5);
+    //if (uart_is_readable(uart0) == true){
 
 
+        while (true) {
+            uart_read_blocking(uart0, buffer, 1);
+            if (buffer[0] == 0xFF) {
+                break;
+            }
 
-    //if (tempThrottle[0] == 0xFF){   //this will test the first bit incase picked up in the middle of transmission
+        }
+    // }
+    //     uart_read_blocking(uart0,buffer,10);
+         uart_read_blocking(uart0, throttleArray, 4);
 
-        //art_read_blocking(uart0,(tempPtr),4);
 
-        // *throttlePtr = (throttleArray[1]>>0)&0xFF;
-        //   printf("%d ",*throttlePtr);
+        // for (int i=0; i<10; i++){
+        //     if (buffer[i] == 0xFF){
+        //         for (int j = 0; j < 5; j++) {
+        //             uart_read_blocking(uart0, &throttleArray[j], 1);
+        //         }
+        //         break;
+        //         }
+        //     }
+    //}
+    memset(buffer, 0, sizeof(buffer));
+
+    joined = 0;
+    for (int j = 0; j<4; j++){
+        printf("%d ",throttleArray[j]);
+        joined += (throttleArray[j]<<(8*(3-j))); 
+        }
+
+    printf("\n");
+    
+    printf("\nthrottle: %d\n\n",joined);
+
+    
   
-        //  *(throttlePtr+1) = (throttleArray[2]>>8)&0xFF;
-        //   printf("%d ", *(throttlePtr+1));
-      
-        // *(throttlePtr+2) = (throttleArray[3] >>16)&0xFF;
-        //   printf("%d ",*(throttlePtr + 2));
-      
-        //  *(throttlePtr+3) = (throttleArray[4]>>24);
-        //   printf("%d ",*(throttlePtr+3));
-        joined = 0;
-          for (int j = 1; j<5; j++){
-            joined = joined + (*(throttlePtr+j)<<(8*j)); 
-                }
-            
-          printf("\n\n%d",joined);
-
-      // }
-      // else
-      //   {
-      //   break;
-      //   }
-          // uart_read_blocking(uart0,(throttlePtr+2),1);
-          // uart_read_blocking(uart0,(throttlePtr+3),1);
-          // uart_read_blocking(uart0,(throttlePtr+4),1);
-
-    }
-
-
-
-
-
-    sleep_ms(500);
-  }
+}
 }
 
 
