@@ -14,7 +14,11 @@
 
 #include "initialise_functions.h"
 
+
 int main() {
+    int pause;
+    int throttleVal;
+    
     stdio_init_all();
 
     sleep_ms(5000);
@@ -24,9 +28,10 @@ int main() {
 
     uart_initialisation(uart0,BAUD_RATE, UART_TX, UART_RX,8, 1);
     
-    pwm_initialisation(10,0,0);
-        
-    arm_sequence(10,0,6,500);
+    pwm_initialisation(M1_pin,0,0,6);
+    uint slice = pwm_gpio_to_slice_num(M1_pin);
+
+    //esc_calibration(M1_pin,0,6,500);
 
     printf("Hello, world! \n");
     
@@ -46,7 +51,7 @@ int main() {
 
     uint8_t throttleArray[5];
     uint8_t* throttlePtr = throttleArray;
-    uint8_t buffer[10];
+    uint8_t buffer[1];
     
     uint32_t joined = 0;
 
@@ -68,10 +73,15 @@ int main() {
         gpio_init(PICO_DEFAULT_LED_PIN_INVERTED);
         gpio_put(PICO_DEFAULT_LED_PIN_INVERTED, 1);
 
-        // printf("enter pulse width between 125 and 250 us");
-        // scanf("%d",&pause);
+//==========================================================================//
+//manual setting of PWM// 
+/*
+        printf("enter pulse width between 125 and 250 us");
+        scanf("%d",&pause);
         
-       // pwm_set_chan_level(slice,0,pause)        
+       pwm_set_chan_level(slice,0,pause);
+*/
+//==========================================================================//
 
             //working code to read 1 byte
         // uart_read_blocking(uart0,dpad,1);
@@ -88,7 +98,7 @@ int main() {
         printf("\n");
 */
 
-    //if (uart_is_readable(uart0) == true){
+    if (uart_is_readable(uart0) == true){
 
 
         while (true) {
@@ -98,8 +108,7 @@ int main() {
             }
 
         }
-    // }
-    //     uart_read_blocking(uart0,buffer,10);
+
          uart_read_blocking(uart0, throttleArray, 4);
 
 
@@ -116,16 +125,26 @@ int main() {
 
     joined = 0;
     for (int j = 0; j<4; j++){
-        printf("%d ",throttleArray[j]);
+        //printf("%d ",throttleArray[j]);
         joined += (throttleArray[j]<<(8*(3-j))); 
         }
 
     printf("\n");
     
     printf("\nthrottle: %d\n\n",joined);
-
     
-  
+    throttleVal = 125 + (125*joined)/1020;
+
+    pwm_set_chan_level(slice,0,throttleVal);
+
+
+    }
+    
+
+
+
+
+
 }
 }
 

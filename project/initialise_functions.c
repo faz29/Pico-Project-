@@ -54,7 +54,7 @@ void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int r
     printf("UART initialised at %d baud rate with TX on pin %d and RX on pin %d !\n", uart_Brate, tx_pin, rx_pin);
 }
 
-void pwm_initialisation(int pwm_pin,uint chan,int pulse_width){
+void pwm_initialisation(int pwm_pin,uint chan,int pulse_width,int ledPin){
     gpio_set_function(pwm_pin,GPIO_FUNC_PWM);
     uint slice = pwm_gpio_to_slice_num(pwm_pin);
 
@@ -64,8 +64,14 @@ void pwm_initialisation(int pwm_pin,uint chan,int pulse_width){
     pwm_set_chan_level(slice,chan,pulse_width); //maybe moved to main loop
     pwm_set_enabled(slice,true);    
     printf("PWM initialised on pin %d !\n",pwm_pin);
+
+    gpio_init(ledPin);
+    gpio_set_dir(ledPin,GPIO_OUT);
+    gpio_put(ledPin,1);
 }
-void arm_sequence(int pwm_pin,uint chan,int ledPin, int arm_sleep){
+
+
+void esc_calibration(int pwm_pin,uint chan,int ledPin, int arm_sleep){
     uint slice = pwm_gpio_to_slice_num(pwm_pin);
     //arm sequence: zero throttle (125us), small delay, then full (250us), small delay then zero throttle.
     pwm_set_chan_level(slice,chan,125); 
