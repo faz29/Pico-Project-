@@ -87,5 +87,50 @@ void esc_calibration(int pwm_pin,uint chan,int ledPin, int arm_sleep){
     printf("Arm sequence complete!\n");
 }
 
+void led_on(int ledPin, bool state){
+    gpio_init(ledPin);
+    gpio_set_dir(ledPin,GPIO_OUT);
+    gpio_put(ledPin,state);
+
+}
+
+void read_throttle(int pwm_pin){
+    uint8_t buffer[1];
+    uint8_t throttleArray[5];
+    uint32_t joined;
+    uint16_t throttleVal;
+    uint slice = pwm_gpio_to_slice_num(pwm_pin);
+
+
+    if (uart_is_readable(uart0) == true){
+        while (true) {
+            led_on(7,true);
+            uart_read_blocking(uart0, buffer, 1);
+            if (buffer[0] == 0xFF) {
+                break;
+            }
+        }
+
+        uart_read_blocking(uart0, throttleArray, 4);
+    led_on(7,false);
+    buffer[0]=0;
+    joined = 0;
+
+    for (int j = 0; j<4; j++){
+        //printf("%d ",throttleArray[j]);
+        joined += (throttleArray[j]<<(8*(3-j))); 
+        }
+
+    printf("\n");
+    
+    printf("\nthrottle: %d\n\n",joined);
+    
+    throttleVal = 125 + (125*joined)/1020;
+
+    pwm_set_chan_level(slice,0,throttleVal);
+
+    }
+
+}
     
 

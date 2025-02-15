@@ -12,6 +12,7 @@
 #include "hardware/irq.h"   //potential use interrupts for certain actions e.g. landing 
 #include "hardware/pwm.h"
 
+#include "pico_sensor_lib.h"
 #include "initialise_functions.h"
 
 
@@ -20,7 +21,7 @@ int main() {
     int throttleVal;
     
     stdio_init_all();
-
+    
     sleep_ms(5000);
     i2c_initialisation(i2c0,400*1000,MPU6050_SDA,MPU6050_SCL);
 
@@ -35,6 +36,7 @@ int main() {
 
     printf("Hello, world! \n");
     
+    uint8_t buffer[1];
 
     uint8_t index = 0;
     uint8_t dpad[0];
@@ -51,7 +53,6 @@ int main() {
 
     uint8_t throttleArray[5];
     uint8_t* throttlePtr = throttleArray;
-    uint8_t buffer[1];
     
     uint32_t joined = 0;
 
@@ -71,10 +72,12 @@ int main() {
         //cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);  
         //sleep_ms(500);
         gpio_init(PICO_DEFAULT_LED_PIN_INVERTED);
+        gpio_set_dir(PICO_DEFAULT_LED_PIN_INVERTED,GPIO_OUT);
         gpio_put(PICO_DEFAULT_LED_PIN_INVERTED, 1);
 
 //==========================================================================//
-//manual setting of PWM// 
+//manual setting of PWM
+//disable uart input if using this
 /*
         printf("enter pulse width between 125 and 250 us");
         scanf("%d",&pause);
@@ -96,55 +99,27 @@ int main() {
         printf("%d   %d",buttons[0],buttons[1]);
 
         printf("\n");
-*/
+*/  
 
-    if (uart_is_readable(uart0) == true){
-
-
-        while (true) {
-            uart_read_blocking(uart0, buffer, 1);
-            if (buffer[0] == 0xFF) {
-                break;
-            }
-
-        }
-
-         uart_read_blocking(uart0, throttleArray, 4);
+   read_throttle(M1_pin);
 
 
-        // for (int i=0; i<10; i++){
-        //     if (buffer[i] == 0xFF){
-        //         for (int j = 0; j < 5; j++) {
-        //             uart_read_blocking(uart0, &throttleArray[j], 1);
-        //         }
-        //         break;
-        //         }
-        //     }
-    //}
-    memset(buffer, 0, sizeof(buffer));
+   //    void *ctx = NULL;
+//    int res = i2c_init_sensor(get_i2c_sensor_type("DPS310"), i2c0, 0x77, &ctx);
+//    if (res) {
+//       // failed to initialize sensor...
+//    }
 
-    joined = 0;
-    for (int j = 0; j<4; j++){
-        //printf("%d ",throttleArray[j]);
-        joined += (throttleArray[j]<<(8*(3-j))); 
-        }
+//    int delay = i2c_start_measurement(ctx);
+//         if (delay < 0) {
+//         // failed to initiate measurement...
+//         }
 
-    printf("\n");
+//    float temp, pressure, humidity;
+
+//    i2c_read_measurement(&ctx, &temp, &pressure, &humidity);
     
-    printf("\nthrottle: %d\n\n",joined);
-    
-    throttleVal = 125 + (125*joined)/1020;
-
-    pwm_set_chan_level(slice,0,throttleVal);
-
-
-    }
-    
-
-
-
-
-
+   printf("");  
 }
 }
 

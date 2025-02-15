@@ -53,6 +53,10 @@ target_include_directories(project PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
 )
 
+# Include pico-sensor-lib library.
+#C:\Users\fares\dps310\libs
+add_subdirectory(libs/pico-sensor-lib)  
+
 # Add any user requested libraries
 target_link_libraries(project 
         hardware_i2c
@@ -62,6 +66,7 @@ target_link_libraries(project
         hardware_clocks
         pico_cyw43_arch_none
         hardware_pwm
+        pico_sensor_lib
         )
 
 pico_add_extra_outputs(project)

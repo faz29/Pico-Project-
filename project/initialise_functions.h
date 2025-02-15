@@ -26,3 +26,7 @@ void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int r
 void pwm_initialisation(int pwm_pin,uint chan,int pulse_width,int ledPin);
 
 void esc_calibration(int pwm_pin,uint chan,int ledPin, int arm_sleep);
+
+void led_on(int ledPin, bool state);
+
+void read_throttle(int pwm_pin);
