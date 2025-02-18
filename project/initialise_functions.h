@@ -7,6 +7,9 @@
 #define MPU6050_SDA 8
 #define MPU6050_SCL 9
 
+#define DPS310_SDA 12
+#define DPS310_SCL 13
+
 //#define Magnetomer_SDA 
 //#define Magnetomer_SCL
 
@@ -29,4 +32,97 @@ void esc_calibration(int pwm_pin,uint chan,int ledPin, int arm_sleep);
 
 void led_on(int ledPin, bool state);
 
-void read_throttle(int pwm_pin);
+void led_blink(int pin, int ticks);
+
+void read_throttle(int pwm_pin, int* c, uint16_t* throttleVal);
+
+void read_brake(int pwm_pin, int* c, uint16_t* brake);
+
+void throttleResponse(int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake);
+
+
+
+    
+uint8_t buffer[1];
+
+//uint8_t index = 0;
+uint8_t dpad[0];
+
+//uint16_t buttons[1];
+uint8_t buttons[1];
+
+int32_t axisX = 0;
+int32_t axisY = 0;
+int32_t axisRX = 0;
+int32_t axisRY = 0;
+int32_t brake = 0;
+
+
+uint8_t throttleArray[5];
+uint8_t* throttlePtr = throttleArray;
+
+uint32_t joined = 0;
+
+uint16_t miscButtons = 0;
+int32_t gyroX = 0;
+int32_t gyroY = 0;
+int32_t gyroZ = 0;
+int32_t accelX = 0;
+int32_t accelY = 0;
+int32_t accelZ = 0;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//     for(int k=0; k<1000;k++){
+//         int delay = i2c_start_measurement(ctx);
+//         if (delay < 0) {
+//                 printf("Failed to initiate measurement...\n");
+//                 return -1;
+//         }
+//         // sleep_ms(5);
+        
+//         res = i2c_read_measurement(ctx, &temp, &pressure, &humidity);
+//         if (res) {
+//                 printf("Failed to read measurements...\n");
+//                 return -1;
+//         }
+//         printf("Temperature: %.5f C, Pressure -101230: %.5f hPa\n", temp, pressure);
+//         }
+
+//         printf("Initialisation measurements done !\nNow starting average measurements ...");
+//         sleep_ms(2000);
+
+//         int total = 1000;
+//     for(int k=0; k<total;k++){
+//         int delay = i2c_start_measurement(ctx);
+//         if (delay < 0) {
+//                 printf("Failed to initiate measurement...\n");
+//                 return -1;
+//         }
+//         //sleep_ms(5);
+//         res = i2c_read_measurement(ctx, &temp, &pressure, &humidity);
+//         if (res) {
+//                 printf("Failed to read measurements...\n");
+//                 return -1;
+//         }
+//         printf("Temperature: %.5f C, Pressure -101230: %.5f hPa\n", temp, pressure);
+//         avgTemp +=temp;
+//         avgPressure += pressure;
+//         }
+//         printf("\nAverage Temperature: %.5f C, Average Pressure Pressure: %.5f hPa\n", avgTemp, avgPressure);
+
+//         avgPressure = avgPressure/total;
+//         avgTemp = avgTemp/total;
+//         printf("\nAverage Temperature: %.5f C, Average Pressure Pressure: %.5f hPa\n", avgTemp, avgPressure);

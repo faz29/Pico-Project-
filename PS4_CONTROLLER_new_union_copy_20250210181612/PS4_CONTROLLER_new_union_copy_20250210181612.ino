@@ -76,6 +76,7 @@ void dumpGamepad(ControllerPtr ctl) {
 
 
       uint32_t throttle_value = ctl->throttle();
+      uint32_t brake_value = ctl->brake();
 
       Serial.print("\nStart byte: ");
       Serial.print(0xFF);
@@ -85,7 +86,13 @@ void dumpGamepad(ControllerPtr ctl) {
       PicoSerial.write((throttle_value >> 24) & 0xFF);  // First byte
       PicoSerial.write((throttle_value >> 16) & 0xFF);  // Second byte
       PicoSerial.write((throttle_value >> 8) & 0xFF);   // Third byte
-      PicoSerial.write(throttle_value & 0xFF);          // Fourth byte
+      PicoSerial.write(throttle_value & 0xFF);   // Fourth byte
+      
+     // PicoSerial.write(0xFE);
+      PicoSerial.write((brake_value>>24)&0xFF);
+      PicoSerial.write((brake_value>>16)&0xFF);
+      PicoSerial.write((brake_value>>8)&0xFF);
+      PicoSerial.write((brake_value)&0xFF);       
         
   //PicoSerial.write(ctl->throttle());
 
@@ -99,10 +106,10 @@ void dumpGamepad(ControllerPtr ctl) {
 
 
 
-  Serial.print("\nThrottle: ");
+  Serial.printf("\nThrottle: %4d  Brake: %4d ",ctl->throttle(),ctl->brake());
 
 
-  Serial.print(ctl->throttle());
+//  Serial.print(ctl->throttle());
     
 
 

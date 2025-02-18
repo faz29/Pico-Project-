@@ -11,6 +11,7 @@
 #include "pico/multicore.h" // potentially run sensors and flight control code different cores
 #include "hardware/irq.h"   //potential use interrupts for certain actions e.g. landing 
 #include "hardware/pwm.h"
+#include <time.h>
 
 #include "pico_sensor_lib.h"
 #include "initialise_functions.h"
@@ -22,104 +23,102 @@ int main() {
     
     stdio_init_all();
     
-    sleep_ms(5000);
-    i2c_initialisation(i2c0,400*1000,MPU6050_SDA,MPU6050_SCL);
+    sleep_ms(2000);
+    i2c_initialisation(i2c0,400*1000,DPS310_SDA,DPS310_SCL);
 
     //wifi_chip_initialisation();
 
     uart_initialisation(uart0,BAUD_RATE, UART_TX, UART_RX,8, 1);
     
-    pwm_initialisation(M1_pin,0,0,6);
+    pwm_initialisation(M1_pin,0,125,6);
     uint slice = pwm_gpio_to_slice_num(M1_pin);
 
-    //esc_calibration(M1_pin,0,6,500);
+    esc_calibration(M1_pin,0,6,500);
 
     printf("Hello, world! \n");
-    
-    uint8_t buffer[1];
-
-    uint8_t index = 0;
-    uint8_t dpad[0];
-
-    //uint16_t buttons[1];
-    uint8_t buttons[1];
-
-    int32_t axisX = 0;
-    int32_t axisY = 0;
-    int32_t axisRX = 0;
-    int32_t axisRY = 0;
-    int32_t brake = 0;
 
 
-    uint8_t throttleArray[5];
-    uint8_t* throttlePtr = throttleArray;
-    
-    uint32_t joined = 0;
+    void *ctx = NULL;
+    int res = i2c_init_sensor(get_i2c_sensor_type("DPS310"), i2c0, 0x77, &ctx);
+    if (res) {
+        printf("Failed to initialize sensor...\n");
+        return -1;
+    }
+    printf("Sensor initialized successfully!\n");
 
-    uint16_t miscButtons = 0;
-    int32_t gyroX = 0;
-    int32_t gyroY = 0;
-    int32_t gyroZ = 0;
-    int32_t accelX = 0;
-    int32_t accelY = 0;
-    int32_t accelZ = 0;
-  
+    float temp, pressure, humidity;
+    float avgTemp, avgPressure, absPressure;
+    avgTemp = avgPressure = 0;
+        
+    sleep_ms(2000);
+    int LED = 0;
+    int LED_ticks = 1000;
+
+    int interval = 100000;
+
+    long ledCurr = clock();
+    long ledPrev = 0;
+    bool ledState = false;
 
     while (true) {
-        //printf("\e[1;1H\e[2J");
-        //cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);  
-        //sleep_ms(250);  
-        //cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);  
-        //sleep_ms(500);
-        gpio_init(PICO_DEFAULT_LED_PIN_INVERTED);
-        gpio_set_dir(PICO_DEFAULT_LED_PIN_INVERTED,GPIO_OUT);
-        gpio_put(PICO_DEFAULT_LED_PIN_INVERTED, 1);
+
+        // if((ledCurr-ledPrev)>=interval){
+        //         ledPrev = ledCurr;
+        //         if (ledState ==false){
+        //                 ledState = true;
+        //         }
+        //         if (ledState == true){
+        //                 ledState = false;
+        //         }
+        //         led_on(6,ledState);
+        // }
+
+        LED++;
+        if (LED<=LED_ticks){
+                led_on(6,true);
+        }
+        if (LED>LED_ticks){
+                led_on(6,false);
+        }
+        if (LED>=2*LED_ticks){
+                LED = 0;
+        }
+
+        res = i2c_read_measurement(ctx, &temp, &pressure, &humidity);
+        if (res) {
+                printf("Failed to read measurements...\n");
+                return -1;
+        }
+        absPressure = (pressure - avgPressure);
+        //sleep_ms(20);
+        //fflush(stdout);
+
+        int c,d;
+        uint16_t throttleVal, brakeVal;
+        // read_throttle(M1_pin,&c,&throttleVal);
+        // read_brake(M1_pin,&d,&brakeVal);
+
+        throttleResponse(M1_pin,&c,&d,&throttleVal, &brakeVal);
+
+       printf("Temperature: %.5f C, Absolute Pressure: %.5f hPa, Throttle: %d, Brake: %d\n", temp,absPressure,c,d);
+
+
 
 //==========================================================================//
 //manual setting of PWM
 //disable uart input if using this
-/*
-        printf("enter pulse width between 125 and 250 us");
-        scanf("%d",&pause);
+
+//         printf("enter pulse width between 125 and 250 us");
+//         scanf("%d",&pause);
         
-       pwm_set_chan_level(slice,0,pause);
-*/
+//        pwm_set_chan_level(slice,0,pause);
+
 //==========================================================================//
 
-            //working code to read 1 byte
-        // uart_read_blocking(uart0,dpad,1);
-        // //printf("%c%c%c \n",buf[0],buf[1],buf[2]);
-        // //for (int i = 0; i<sizeof(buf);i++){
-        // printf("%d",dpad[0]);
-        //}
-
-/*      uart_read_blocking(uart0,buttons,1);
-        uart_read_blocking(uart0,buttons,1);
-
-        printf("%d   %d",buttons[0],buttons[1]);
-
-        printf("\n");
-*/  
-
-   read_throttle(M1_pin);
 
 
-   //    void *ctx = NULL;
-//    int res = i2c_init_sensor(get_i2c_sensor_type("DPS310"), i2c0, 0x77, &ctx);
-//    if (res) {
-//       // failed to initialize sensor...
-//    }
 
-//    int delay = i2c_start_measurement(ctx);
-//         if (delay < 0) {
-//         // failed to initiate measurement...
-//         }
 
-//    float temp, pressure, humidity;
-
-//    i2c_read_measurement(&ctx, &temp, &pressure, &humidity);
-    
-   printf("");  
 }
 }
 
