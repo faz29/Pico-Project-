@@ -26,7 +26,7 @@ int main() {
     stdio_init_all();
     
     sleep_ms(2000);
-    i2c_initialisation(i2c0,400*1000,DPS310_SDA,DPS310_SCL);
+    i2c_initialisation(I2C_PORT,400*1000);
 
     uart_initialisation(UART_PORT,BAUD_RATE, UART_TX, UART_RX,8, 1);
     
@@ -38,7 +38,7 @@ int main() {
     printf("Hello, world! \n");
 
     void *ctx = NULL;
-    int res = i2c_init_sensor(get_i2c_sensor_type("DPS310"), i2c0, 0x77, &ctx);
+    int res = i2c_init_sensor(get_i2c_sensor_type("DPS310"), I2C_PORT, 0x77, &ctx);
     if (res) {
         printf("Failed to initialize sensor...\n");
         return -1;
@@ -56,7 +56,7 @@ int main() {
     sleep_ms(2000);
 
 
-    int interval = 250000; 
+    int interval = 100000; 
 
     uint32_t ledCurr = time_us_32();
     uint32_t ledPrev = 0;
@@ -64,13 +64,7 @@ int main() {
 
     while (true) {
 
-        if((ledCurr-ledPrev)>=interval){
-                ledPrev = ledCurr;
-                ledState = !ledState;
-
-                led_on(6,ledState);
-        }
-        ledCurr = time_us_32();
+ 
 
         res = i2c_read_measurement(ctx, &temp, &pressure, &humidity);
         if (res) {
@@ -89,8 +83,16 @@ int main() {
 
         read_controller(UART_PORT,M1_pin,&c,&d,&throttleVal, &brakeVal);
 
-        printf("Temp: %.5f C, Pressure: %.5f hPa, Throttle: %d, Brake: %d, X: %f, Y: %f,\n", temp,absPressure,c,d,AngX,AngY);
 
+        if((ledCurr-ledPrev)>=interval){
+                ledPrev = ledCurr;
+                ledState = !ledState;
+
+                led_on(6,ledState);
+                printf("Temp: %.5f C, Pressure: %.5f hPa, Throttle: %d, Brake: %d, X: %f, Y: %f,\n", temp,absPressure,c,d,AngX,AngY);
+
+        }
+        ledCurr = time_us_32();
 
 
 //==========================================================================//

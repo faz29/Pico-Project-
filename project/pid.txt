@@ -1,0 +1,62 @@
+
+pid = Kp*e(t) + Ki*∫(e(t)dt)[0 T] + Kd*differentiate(e(t)dt)
+
+Ki*∫(e(t)dt)[0 T]
+
+Ki*([e(t)*t]0-[e(t)*t]T)
+
+Ki*(-e(t)T)
+
+
+
+
+
+
+I≈Ki​*∑e(tk​)Δt
+
+at k = 0
+Δt = 0ms
+e(t0) = error0
+
+
+In =In-1 Ki*errorn*Δt
+
+I0 = Ki*error0*0
+
+Δt = 0.1ms
+at k = 1 
+e(t1) = error1
+
+I1 = I0 + Ki*(error1)*Δt
+
+I2 = I1 + Ki*error2*Δt
+
+
+
+
+
+
+
+
+
+receive throttle input e.g 750
+
+translate input to desired angle
+
+measure angle
+
+calculate error 
+error = desired angle - actual angle
+
+PID = Kp*error
+
+if error < 0
+
+    M1 throttle += throttle*PID 
+
+if error > 0
+
+    M1 throttle -= throttle*PID
+
+end loop
+

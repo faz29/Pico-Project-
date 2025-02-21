@@ -80,7 +80,7 @@ double Kalman_getAngle(Kalman_t *Kalman, double newAngle, double newRate, double
 //====================================================================================================
 
 
-void i2c_initialisation(i2c_inst_t *port,uint freq, int SDA_pin,int SCL_pin);
+void i2c_initialisation(i2c_inst_t *port,uint freq);
 
 uint8_t wifi_chip_initialisation(void);//likely not used 
 

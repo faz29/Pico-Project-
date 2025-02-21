@@ -224,13 +224,13 @@ double Kalman_getAngle(Kalman_t *Kalman, double newAngle, double newRate, double
     return Kalman->angle;
 
 }
-void i2c_initialisation(i2c_inst_t *port,uint freq, int SDA_pin,int SCL_pin){
+void i2c_initialisation(i2c_inst_t *port,uint freq){
 // I2C Initialisation. Using it at 400Khz.
     i2c_init(port, freq);
-    gpio_set_function(SDA_pin, GPIO_FUNC_I2C);
-    gpio_set_function(SCL_pin, GPIO_FUNC_I2C);
-    gpio_pull_up(SDA_pin);
-    gpio_pull_up(SCL_pin);
+    // gpio_set_function(DPS310_SDA, GPIO_FUNC_I2C);
+    // gpio_set_function(DPS310_SCL, GPIO_FUNC_I2C);
+    // gpio_pull_up(DPS310_SDA);
+    // gpio_pull_up(DPS310_SCL);
 
     gpio_set_function(MPU6050_SDA, GPIO_FUNC_I2C);
     gpio_set_function(MPU6050_SCL, GPIO_FUNC_I2C);
@@ -246,7 +246,7 @@ int P;
        P = 1;
     }
 
-    printf("I2C Initialised at %dkHz on port %d with SDA on pin %d and SCL on pin %d !!\n", freq/1000, P,SDA_pin,SCL_pin);
+    printf("I2C Initialised at %dkHz on port %p !!\n", freq/1000, port);
 
 }
 
