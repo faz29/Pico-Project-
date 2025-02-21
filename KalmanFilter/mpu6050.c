@@ -1,23 +1,9 @@
 #include <math.h>
 #include "mpu6050.h"
 
-#define RAD_TO_DEG 57.295779513082320876798154814105
 
-#define WHO_AM_I_REG 0x75
-#define PWR_MGMT_1_REG 0x6B
-#define SMPLRT_DIV_REG 0x19
-#define ACCEL_CONFIG_REG 0x1C
-#define ACCEL_XOUT_H_REG 0x3B
-#define TEMP_OUT_H_REG 0x41
-#define GYRO_CONFIG_REG 0x1B
-#define GYRO_XOUT_H_REG 0x43
-
-// Setup MPU6050
-//#define MPU6050_ADDR 0xD0
-#define MPU6050_ADDR 0x68
 const uint16_t i2c_timeout = 100;
 const double Accel_Z_corrector = 14418.0;
-
 uint32_t timer;
 
 Kalman_t KalmanX = {

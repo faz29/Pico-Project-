@@ -20,15 +20,15 @@
 int main() {
     int pause;
     int throttleVal;
+    float AngX, AngY;
+    MPU6050_t MPU6050;
     
     stdio_init_all();
     
     sleep_ms(2000);
     i2c_initialisation(i2c0,400*1000,DPS310_SDA,DPS310_SCL);
 
-    //wifi_chip_initialisation();
-
-    uart_initialisation(uart0,BAUD_RATE, UART_TX, UART_RX,8, 1);
+    uart_initialisation(UART_PORT,BAUD_RATE, UART_TX, UART_RX,8, 1);
     
     pwm_initialisation(M1_pin,0,125,6);
     uint slice = pwm_gpio_to_slice_num(M1_pin);
@@ -36,7 +36,6 @@ int main() {
     esc_calibration(M1_pin,0,6,500);
 
     printf("Hello, world! \n");
-
 
     void *ctx = NULL;
     int res = i2c_init_sensor(get_i2c_sensor_type("DPS310"), i2c0, 0x77, &ctx);
@@ -46,32 +45,32 @@ int main() {
     }
     printf("Sensor initialized successfully!\n");
 
+    MPU6050_Init(I2C_PORT);
+
+    printf("MPU6050 initialised !\n");
+
     float temp, pressure, humidity;
     float avgTemp, avgPressure, absPressure;
     avgTemp = avgPressure = 0;
         
     sleep_ms(2000);
-    int LED = 0;
-    int LED_ticks = 1000;
 
-    int interval = 100000;
 
-    long ledCurr = clock();
-    long ledPrev = 0;
+    int interval = 250000; 
+
+    uint32_t ledCurr = time_us_32();
+    uint32_t ledPrev = 0;
     bool ledState = false;
 
     while (true) {
 
-        // if((ledCurr-ledPrev)>=interval){
-        //         ledPrev = ledCurr;
-        //         if (ledState ==false){
-        //                 ledState = true;
-        //         }
-        //         if (ledState == true){
-        //                 ledState = false;
-        //         }
-        //         led_on(6,ledState);
-        // }
+        if((ledCurr-ledPrev)>=interval){
+                ledPrev = ledCurr;
+                ledState = !ledState;
+
+                led_on(6,ledState);
+        }
+        ledCurr = time_us_32();
 
         res = i2c_read_measurement(ctx, &temp, &pressure, &humidity);
         if (res) {
@@ -80,15 +79,17 @@ int main() {
         }
         absPressure = (pressure - avgPressure);
         //fflush(stdout);
+        MPU6050_Read_All(I2C_PORT,&MPU6050);
+            AngX = MPU6050.KalmanAngleX;
+            AngY = MPU6050.KalmanAngleY;
+
 
         int c,d;
         uint16_t throttleVal, brakeVal;
-        // read_throttle(M1_pin,&c,&throttleVal);
-        // read_brake(M1_pin,&d,&brakeVal);
 
-        throttleResponse(M1_pin,&c,&d,&throttleVal, &brakeVal);
+        read_controller(UART_PORT,M1_pin,&c,&d,&throttleVal, &brakeVal);
 
-       printf("Temperature: %.5f C, Absolute Pressure: %.5f hPa, Throttle: %d, Brake: %d\n", temp,absPressure,c,d);
+        printf("Temp: %.5f C, Pressure: %.5f hPa, Throttle: %d, Brake: %d, X: %f, Y: %f,\n", temp,absPressure,c,d,AngX,AngY);
 
 
 

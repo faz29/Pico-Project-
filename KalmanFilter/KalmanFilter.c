@@ -38,8 +38,10 @@ int main()
     uint32_t prev_wait = 0;
     int interval = 5E5;
 
+    printf("Hello, world!\n");
+    
     while (true) {
-        printf("Hello, world!\n");
+        
         gpio_put(6,1);
         MPU6050_Read_All(I2C_PORT,&MPU6050);
             AngX = MPU6050.KalmanAngleX;
