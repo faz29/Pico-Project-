@@ -73,24 +73,12 @@ int main() {
         //         led_on(6,ledState);
         // }
 
-        LED++;
-        if (LED<=LED_ticks){
-                led_on(6,true);
-        }
-        if (LED>LED_ticks){
-                led_on(6,false);
-        }
-        if (LED>=2*LED_ticks){
-                LED = 0;
-        }
-
         res = i2c_read_measurement(ctx, &temp, &pressure, &humidity);
         if (res) {
                 printf("Failed to read measurements...\n");
                 return -1;
         }
         absPressure = (pressure - avgPressure);
-        //sleep_ms(20);
         //fflush(stdout);
 
         int c,d;
