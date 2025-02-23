@@ -66,17 +66,6 @@ typedef struct {
     double P[2][2];
 } Kalman_t;
 
-uint8_t MPU6050_Init(i2c_inst_t *i2cPort);
-
-void MPU6050_Read_Accel(i2c_inst_t *i2cPort, MPU6050_t *DataStruct);
-
-void MPU6050_Read_Gyro(i2c_inst_t *i2cPort, MPU6050_t *DataStruct);
-
-void MPU6050_Read_Temp(i2c_inst_t *i2cPort, MPU6050_t *DataStruct);
-
-void MPU6050_Read_All(i2c_inst_t *i2cPort, MPU6050_t *DataStruct);
-
-double Kalman_getAngle(Kalman_t *Kalman, double newAngle, double newRate, double dt);
 //====================================================================================================
 
 
@@ -98,6 +87,18 @@ void read_brake(int pwm_pin, int* c, uint16_t* brake);
 
 void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake);
 
+
+uint8_t MPU6050_Init(i2c_inst_t *i2cPort);
+
+void MPU6050_Read_Accel(i2c_inst_t *i2cPort, MPU6050_t *DataStruct);
+
+void MPU6050_Read_Gyro(i2c_inst_t *i2cPort, MPU6050_t *DataStruct);
+
+void MPU6050_Read_Temp(i2c_inst_t *i2cPort, MPU6050_t *DataStruct);
+
+void MPU6050_Read_All(i2c_inst_t *i2cPort, MPU6050_t *DataStruct);
+
+double Kalman_getAngle(Kalman_t *Kalman, double newAngle, double newRate, double dt);
 
 
 

@@ -19,23 +19,17 @@ at k = 0
 e(t0) = error0
 
 
-In =In-1 Ki*errorn*Δt
+    I(n) =I(n-1) Ki*error(n)*Δt
 
-I0 = Ki*error0*0
+    Δt = 0.1ms
 
-Δt = 0.1ms
-at k = 1 
-e(t1) = error1
+    I0 = Ki*error0*0
 
-I1 = I0 + Ki*(error1)*Δt
+    I1 = I0 + Ki*error1*Δt
 
-I2 = I1 + Ki*error2*Δt
+    I2 = I1 + Ki*error2*Δt
 
-
-
-
-
-
+    I3 = I2 + Kierror3*Δt
 
 
 
@@ -46,9 +40,12 @@ translate input to desired angle
 measure angle
 
 calculate error 
-error = desired angle - actual angle
+desired angle = setpoint (sp)
+actual angle = process variable (pv)
 
-PID = Kp*error
+error = sp - pv
+
+PID = Kp*error+Ki​*∑e(t​)Δt
 
 if error < 0
 
