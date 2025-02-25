@@ -10,7 +10,7 @@
         static double I = 0;
         static double prevE = 0;
         static double prevTime = 0;
-
+        
         uint64_t currTime = time_us_64();
 
         dt = (currTime-prevTime)/1000000.0;

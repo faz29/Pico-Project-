@@ -1,16 +1,6 @@
 
 pid = Kp*e(t) + Ki*∫(e(t)dt)[0 T] + Kd*differentiate(e(t)dt)
 
-Ki*∫(e(t)dt)[0 T]
-
-Ki*([e(t)*t]0-[e(t)*t]T)
-
-Ki*(-e(t)T)
-
-
-
-
-
 
 I≈Ki​*∑e(tk​)Δt
 

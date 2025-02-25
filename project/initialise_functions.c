@@ -89,6 +89,7 @@ void pwm_initialisation(int pwm_pin,uint chan,int pulse_width,int ledPin){
     pwm_set_enabled(slice,true);    
     printf("PWM initialised on pin %d !\n",pwm_pin);
 
+    sleep_ms(2000);
     // gpio_init(ledPin);
     // gpio_set_dir(ledPin,GPIO_OUT);
     // gpio_put(ledPin,1);
@@ -193,7 +194,7 @@ void read_brake(int pwm_pin, int* d,uint16_t* brakeVal){
 
 }
 
-void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake){
+void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake){    
 
     uint8_t check[1];
     uint8_t controllerArray[9];
@@ -223,7 +224,7 @@ void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t*
 
     *brake = 125 + (125*brakeJoined)/1020;
 
-    pwm_set_chan_level(slice,0,*throttle);
+    // pwm_set_chan_level(slice,0,*throttle);
 
     *t = throttleJoined;
     *b = brakeJoined;    
@@ -232,6 +233,44 @@ void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t*
     
 }
 
+void PID(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse){
+    *E = *pv-*sp;
+    float PID,P,D,dE,dt;
+    static float I = 0;
+    static float prevE = 0;
+    static uint64_t prevTime = 0;
+    
+    uint64_t currTime = time_us_64();
+
+    dt = (currTime-prevTime)/1000000.0;
+    if (dt < 0.000001) {dt = 0.000001;}   
+    dE = *E - prevE;
+
+    P = Kp*(*E);
+
+    if(*pulse>9 && *pulse<251){
+    I += Ki*(*E)*dt;
+    }
+    
+    D = dE/dt;      
+    PID = P + I + Kd*D;
+    
+    if(PID>*maxstep){
+        PID = *maxstep;}
+    if(PID<-(*maxstep)){
+        PID= -(*maxstep);}
+
+    *pulse += PID;
+    if(*pulse>125){
+        *pulse = 125;
+    }
+    if(*pulse<10){
+        *pulse = 10;
+    }
+
+    prevTime = currTime;
+    prevE = *E;
+}
 
 uint8_t MPU6050_Init(i2c_inst_t *i2cPort) {
     uint8_t check;
