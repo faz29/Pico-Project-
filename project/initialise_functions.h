@@ -8,8 +8,8 @@
 #define MPU6050_SDA 20
 #define MPU6050_SCL 21
 
-#define DPS310_SDA 12
-#define DPS310_SCL 13
+// #define DPS310_SDA 12
+// #define DPS310_SCL 13
 
 //#define Magnetomer_SDA 
 //#define Magnetomer_SCL
@@ -20,6 +20,7 @@
 #define BAUD_RATE 115200
 
 #define M1_pin 10
+#define M2_pin 12
 
 //====================================================================================================
 #define RAD_TO_DEG 57.295779513082320876798154814105

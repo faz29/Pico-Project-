@@ -234,11 +234,19 @@ void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t*
 }
 
 void PID(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse){
-    *E = *pv-*sp;
+    //*E = *pv-*sp;
+    //*E = *sp - *pv;
     float PID,P,D,dE,dt;
     static float I = 0;
     static float prevE = 0;
     static uint64_t prevTime = 0;
+
+    if(*sp>100 || *sp<-100){
+        *sp = 0;}
+    if (*sp>50 && *sp<100){ 
+        *sp =50;}
+    if(*sp<-50 && *sp>-100){
+        *sp = -50;}
     
     uint64_t currTime = time_us_64();
 
@@ -264,8 +272,8 @@ void PID(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxste
     if(*pulse>125){
         *pulse = 125;
     }
-    if(*pulse<10){
-        *pulse = 10;
+    if(*pulse<20){
+        *pulse = 20;
     }
 
     prevTime = currTime;

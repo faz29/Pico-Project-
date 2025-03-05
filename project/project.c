@@ -31,9 +31,13 @@ int main() {
     uart_initialisation(UART_PORT,BAUD_RATE, UART_TX, UART_RX,8, 1);
     
     pwm_initialisation(M1_pin,0,125,6);
-    uint slice = pwm_gpio_to_slice_num(M1_pin);
+    pwm_initialisation(M2_pin,0,125,6);
 
-    esc_calibration(M1_pin,0,6,500);
+    uint sliceM1 = pwm_gpio_to_slice_num(M1_pin);
+    uint sliceM2 = pwm_gpio_to_slice_num(M2_pin);
+
+
+    //esc_calibration(M1_pin,0,6,500);
 
     printf("Hello, world! \n");
 
@@ -62,23 +66,21 @@ int main() {
     uint32_t ledPrev = 0;
     bool ledState = false;
 
-    float Error, setp, pvar, Kp,Ki,Kd,pulse,currAngle,addAngle;
-    float angle, throttle;
+    float ErrorM1, ErrorM2, setp, pvar, Kp,Ki,Kd,pulseM1,pulseM2,currAngle,addAngle;
+    float angle, throttleM1, throttleM2;
 
-    angle = setp = addAngle = Error = throttle = 0;
+    angle = setp = addAngle = ErrorM1 = ErrorM2 = throttleM1 = throttleM2 = 0;
 
     int UP,DOWN,maxstep;
     maxstep = 3;
     UP = DOWN = 0;
     uint16_t throttleVal, brakeVal;
     
-    Kp= 3;
-    Ki = 0.003;
-    Kd= 1.5;
+    Kp = 0.002;
+    // Ki = 0.0028797695;
+    // Kd = 10.5;
 
     while (true) {
-
- 
 
         // res = i2c_read_measurement(ctx, &temp, &pressure, &humidity);
         // if (res) {
@@ -91,39 +93,47 @@ int main() {
             AngX = MPU6050.KalmanAngleX;
             AngY = MPU6050.KalmanAngleY;
 
-
-
         read_controller(UART_PORT,M1_pin,&UP,&DOWN,&throttleVal,&brakeVal);
 
-        
-        pvar = AngY/1.00000000;
+        pvar = AngX/1.00000000;
         angle = ((DOWN*1.00000-UP*1.0000)*0.005);
         addAngle = (angle/1020);
         setp +=  addAngle;
 
+        // if(setp>100 || setp<-100){
+        //     setp = 0;}
+        // if (setp>50 && setp<100){ 
+        //     setp =50;}
+        // if(setp<-50 && setp>-100){
+        //     setp = -50;}
 
-        if(setp>100 || setp<-100){
-            setp = 0;}
-        if (setp>50 && setp<100){ 
-            setp =50;}
-        if(setp<-50 && setp>-100){
-            setp = -50;}
+        ErrorM1 = pvar-setp;
+        ErrorM2 = setp - pvar;
 
-        //Error = (setp - currAngle);
+        PID(&ErrorM1,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM1);
+        PID(&ErrorM2,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM2);
 
-
-        PID(&Error,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulse);
-
-        if(pulse>125){
-            pulse = 125;
+        if(pulseM1>35){
+            pulseM1 = 35;
         }
-        if(pulse<10){
-            pulse =10;
+        if(pulseM1<10){
+            pulseM1 =10;
         }
         
-        throttle = 125 +pulse;  
+        throttleM1 = 125 + pulseM1;  
 
-        pwm_set_chan_level(slice,0,throttle);
+        if(pulseM2>125){
+            pulseM2 = 125;
+        }
+        if(pulseM2<10){
+            pulseM2 =10;
+        }
+        
+        throttleM2 = 125 + pulseM2;  
+
+        pwm_set_chan_level(sliceM1,0,throttleM1);
+        pwm_set_chan_level(sliceM2  ,0,throttleM2);
+
 
         if((ledCurr-ledPrev)>=interval){
                 ledPrev = ledCurr;
@@ -132,8 +142,10 @@ int main() {
                 led_on(6,ledState);
                 printf("Temp: %.5f C, Pressure: %.5f hPa, Throttle: %d, Brake: %d, X: %f, Y: %f,\n", temp,absPressure,UP,DOWN,AngX,AngY);
                 printf("\nSetpoint: %f\n",setp); 
-                printf("\nPulse: %f\n",throttle);   
-                printf("\nError: %f\n",Error);
+                printf("\nPulse M1: %f\n",throttleM1);   
+                printf("\nError M1: %f\n",ErrorM1);
+                printf("\nPulse M2: %f\n",throttleM2);   
+                printf("\nError M2: %f\n",ErrorM2);
                 printf("\ncurrent Angle: %f\n",pvar);
 
 

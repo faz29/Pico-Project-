@@ -47,3 +47,10 @@ if error > 0
 
 end loop
 
+Ku = 0.01
+
+Kp = 0.2Ku = 0.004
+Tu = 1.389s 
+Ki = 0.4Ku/Tu = 0.005759539
+Kd = 0.066KuTu = 0.00183348
+
