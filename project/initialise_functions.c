@@ -233,9 +233,7 @@ void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t*
     
 }
 
-void PID(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse){
-    //*E = *pv-*sp;
-    //*E = *sp - *pv;
+void PID(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl){
     float PID,P,D,dE,dt;
     static float I = 0;
     static float prevE = 0;
@@ -263,17 +261,62 @@ void PID(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxste
     D = dE/dt;      
     PID = P + I + Kd*D;
     
-    if(PID>*maxstep){
-        PID = *maxstep;}
-    if(PID<-(*maxstep)){
-        PID= -(*maxstep);}
+    // if(PID>*maxstep){
+    //     PID = *maxstep;}
+    // if(PID<-(*maxstep)){
+    //     PID= -(*maxstep);}
 
     *pulse += PID;
     if(*pulse>125){
         *pulse = 125;
     }
-    if(*pulse<20){
-        *pulse = 20;
+    if(*pulse<*bl){
+        *pulse = *bl;
+    }
+
+    prevTime = currTime;
+    prevE = *E;
+}
+
+void PID_quiet(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl){
+    float PID,P,D,dE,dt;
+    static float I = 0;
+    static float prevE = 0;
+    static uint64_t prevTime = 0;
+
+    if(*sp>100 || *sp<-100){
+        *sp = 0;}
+    if (*sp>50 && *sp<100){ 
+        *sp =50;}
+    if(*sp<-50 && *sp>-100){
+        *sp = -50;}
+    
+    uint64_t currTime = time_us_64();
+
+    dt = (currTime-prevTime)/1000000.0;
+    if (dt < 0.000001) {dt = 0.000001;}   
+    dE = *E - prevE;
+
+    P = Kp*(*E);
+
+    if(*pulse>9 && *pulse<251){
+    I += Ki*(*E)*dt;
+    }
+    
+    D = dE/dt;      
+    PID = P + I + Kd*D;
+    
+    // if(PID>*maxstep){
+    //     PID = *maxstep;}
+    // if(PID<-(*maxstep)){
+    //     PID= -(*maxstep);}
+
+    *pulse += PID;
+    if(*pulse>75){
+        *pulse = 75;
+    }
+    if(*pulse<abs(*bl)){
+        *pulse = 0;
     }
 
     prevTime = currTime;
@@ -315,6 +358,8 @@ uint8_t MPU6050_Init(i2c_inst_t *i2cPort) {
         Data[0] = GYRO_CONFIG_REG;
         Data[1] = 0x00;
         i2c_write_blocking(i2cPort,MPU6050_ADDR,Data,2,false);
+
+        printf("MPU6050 Initialised !");
         return 0;
     }
     return 1;

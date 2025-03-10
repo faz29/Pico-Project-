@@ -88,7 +88,9 @@ void read_brake(int pwm_pin, int* c, uint16_t* brake);
 
 void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake);
 
-void PID(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse);
+void PID(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl);
+
+void PID_quiet(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl);
 
 uint8_t MPU6050_Init(i2c_inst_t *i2cPort);
 

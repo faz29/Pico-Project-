@@ -12,6 +12,7 @@
 #include "hardware/irq.h"   //potential use interrupts for certain actions e.g. landing 
 #include "hardware/pwm.h"
 #include <time.h>
+#include <math.h>
 
 #include "pico_sensor_lib.h"
 #include "initialise_functions.h"
@@ -66,19 +67,18 @@ int main() {
     uint32_t ledPrev = 0;
     bool ledState = false;
 
-    float ErrorM1, ErrorM2, setp, pvar, Kp,Ki,Kd,pulseM1,pulseM2,currAngle,addAngle;
-    float angle, throttleM1, throttleM2;
+    float ErrorM1, ErrorM2, setp, pvar, Kp,Ki,Kd,pulseM1,pulseM2,currAngle,addAngle, angle, throttleM1, throttleM2, baselineM1, baselineM2;
 
-    angle = setp = addAngle = ErrorM1 = ErrorM2 = throttleM1 = throttleM2 = 0;
+    angle = setp = addAngle = ErrorM1 = ErrorM2 = throttleM1 = throttleM2 = baselineM1 = baselineM2 = pulseM1 = pulseM2 = 0;
 
     int UP,DOWN,maxstep;
-    maxstep = 3;
+    maxstep = 10;
     UP = DOWN = 0;
     uint16_t throttleVal, brakeVal;
     
-    Kp = 0.002;
-    // Ki = 0.0028797695;
-    // Kd = 10.5;
+    Kp = 0.0001;
+    Ki = 0.0;
+    Kd = 0.0001;
 
     while (true) {
 
@@ -100,39 +100,30 @@ int main() {
         addAngle = (angle/1020);
         setp +=  addAngle;
 
-        // if(setp>100 || setp<-100){
-        //     setp = 0;}
-        // if (setp>50 && setp<100){ 
-        //     setp =50;}
-        // if(setp<-50 && setp>-100){
-        //     setp = -50;}
-
-        ErrorM1 = pvar-setp;
+        ErrorM1 = pvar - setp;
         ErrorM2 = setp - pvar;
 
-        PID(&ErrorM1,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM1);
-        PID(&ErrorM2,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM2);
+        // PID(&ErrorM1,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM1,&baselineM1);
+        // PID(&ErrorM2,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM2,&baselineM2);
 
-        if(pulseM1>35){
-            pulseM1 = 35;
-        }
-        if(pulseM1<10){
-            pulseM1 =10;
-        }
-        
-        throttleM1 = 125 + pulseM1;  
+        baselineM1 = sinf((pvar*2*3.14)/360)*63;
+        baselineM2 = sinf((pvar*2*3.14)/360)*63;
 
-        if(pulseM2>125){
-            pulseM2 = 125;
+        PID_quiet(&ErrorM1,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM1,&baselineM1);
+        PID_quiet(&ErrorM2,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM2, &baselineM2);
+
+        if(AngX<0){
+            baselineM1 = 0;
         }
-        if(pulseM2<10){
-            pulseM2 =10;
+        if(AngX>0){
+            baselineM2 = 0;
         }
-        
-        throttleM2 = 125 + pulseM2;  
+
+        throttleM1 = 125 + baselineM1 + pulseM1; 
+        throttleM2 = 125 - baselineM2 + pulseM2;
 
         pwm_set_chan_level(sliceM1,0,throttleM1);
-        pwm_set_chan_level(sliceM2  ,0,throttleM2);
+        pwm_set_chan_level(sliceM2,0,throttleM2);
 
 
         if((ledCurr-ledPrev)>=interval){
@@ -147,6 +138,8 @@ int main() {
                 printf("\nPulse M2: %f\n",throttleM2);   
                 printf("\nError M2: %f\n",ErrorM2);
                 printf("\ncurrent Angle: %f\n",pvar);
+                printf("\n\n\n\n Baseline M1: %f",baselineM1);
+                printf("\n\n\n\n Baseline M2: %f",baselineM2);
 
 
         }
@@ -157,15 +150,12 @@ int main() {
 //manual setting of PWM
 //disable uart input if using this
 
-//         printf("enter pulse width between 125 and 250 us");
-//         scanf("%d",&pause);
+    //     printf("enter pulse width between 125 and 250 us");
+    //     scanf("%d",&pause);
         
-//        pwm_set_chan_level(slice,0,pause);
+    //    pwm_set_chan_level(sliceM1,0,pause);
 
 //==========================================================================//
-
-
-
 
 
 }
