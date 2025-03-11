@@ -23,6 +23,9 @@ int main() {
     // int throttleVal;
     float AngX, AngY;
     MPU6050_t MPU6050;
+
+    pid_vars pidM1;
+    pid_vars pidM2;
     
     stdio_init_all();
     
@@ -76,9 +79,9 @@ int main() {
     UP = DOWN = 0;
     uint16_t throttleVal, brakeVal;
     
-    Kp = 0.0001;
+    Kp = 0.0007;
     Ki = 0.0;
-    Kd = 0.0001;
+    Kd = 0.00;
 
     while (true) {
 
@@ -103,24 +106,26 @@ int main() {
         ErrorM1 = pvar - setp;
         ErrorM2 = setp - pvar;
 
-        // PID(&ErrorM1,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM1,&baselineM1);
-        // PID(&ErrorM2,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM2,&baselineM2);
 
-        baselineM1 = sinf((pvar*2*3.14)/360)*63;
-        baselineM2 = sinf((pvar*2*3.14)/360)*63;
+        baselineM1 = sinf((pvar*2*3.14)/360)*65;
+        baselineM2 = (-1)*sinf((pvar*2*3.14)/360)*65;
 
         PID_quiet(&ErrorM1,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM1,&baselineM1);
         PID_quiet(&ErrorM2,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM2, &baselineM2);
 
         if(AngX<0){
             baselineM1 = 0;
-        }
+        }           
         if(AngX>0){
             baselineM2 = 0;
         }
 
         throttleM1 = 125 + baselineM1 + pulseM1; 
-        throttleM2 = 125 - baselineM2 + pulseM2;
+        throttleM2 = 125 + baselineM2 + pulseM2;
+
+        if(throttleM1>190){throttleM1 = 180;}
+        if(throttleM2>190){throttleM2 = 180;}
+
 
         pwm_set_chan_level(sliceM1,0,throttleM1);
         pwm_set_chan_level(sliceM2,0,throttleM2);
@@ -156,6 +161,9 @@ int main() {
     //    pwm_set_chan_level(sliceM1,0,pause);
 
 //==========================================================================//
+
+        // PID(&ErrorM1,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM1,&baselineM1);
+        // PID(&ErrorM2,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM2,&baselineM2);
 
 
 }

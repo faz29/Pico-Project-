@@ -299,28 +299,32 @@ void PID_quiet(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* 
 
     P = Kp*(*E);
 
-    if(*pulse>9 && *pulse<251){
+    if(*pulse>9 && *pulse<126){
     I += Ki*(*E)*dt;
     }
     
     D = dE/dt;      
     PID = P + I + Kd*D;
     
-    // if(PID>*maxstep){
-    //     PID = *maxstep;}
-    // if(PID<-(*maxstep)){
-    //     PID= -(*maxstep);}
+    if(PID>*maxstep){
+        PID = *maxstep;}
+    if(PID<-(*maxstep)){
+        PID= -(*maxstep);}
 
     *pulse += PID;
     if(*pulse>75){
         *pulse = 75;
     }
-    if(*pulse<abs(*bl)){
+    if(*pulse<fabs(*bl)){
         *pulse = 0;
     }
-
+    
     prevTime = currTime;
     prevE = *E;
+}
+
+void PIDStruct(pid_vars *Data){
+    
 }
 
 uint8_t MPU6050_Init(i2c_inst_t *i2cPort) {

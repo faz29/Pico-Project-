@@ -22,6 +22,25 @@
 #define M1_pin 10
 #define M2_pin 12
 
+typedef struct {
+
+    float PID;
+    float P;
+    float I;
+    float D;
+    float Kp;
+    float Ki;
+    float Kd;
+    float E;
+    float prevE;
+    float prevTime;
+    float bl;
+    float pulse;
+    float pv;
+    float sp;
+
+} pid_vars;
+
 //====================================================================================================
 #define RAD_TO_DEG 57.295779513082320876798154814105
 #define WHO_AM_I_REG 0x75
@@ -91,6 +110,8 @@ void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t*
 void PID(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl);
 
 void PID_quiet(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl);
+
+void PIDStruct(pid_vars *Data);
 
 uint8_t MPU6050_Init(i2c_inst_t *i2cPort);
 
