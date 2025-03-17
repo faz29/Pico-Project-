@@ -107,9 +107,11 @@ void read_brake(int pwm_pin, int* c, uint16_t* brake);
 
 void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake);
 
-void PID(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl);
+void PID(double* E, double Kp, double Ki, double Kd,double* pulse1, double* pulse2, double* blm1, double* blm2);
 
-void PID_quiet(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl);
+void PID_quiet_M1(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl);
+
+void PID_quiet_M2(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl);
 
 void PIDStruct(pid_vars *Data);
 

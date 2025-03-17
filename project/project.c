@@ -45,12 +45,6 @@ int main() {
 
     printf("Hello, world! \n");
 
-    // void *ctx = NULL;
-    // int res = i2c_init_sensor(get_i2c_sensor_type("DPS310"), I2C_PORT, 0x77, &ctx);
-    // if (res) {
-    //     printf("DPS310 Failed to initialize ...\n");
-    //     return -1;
-    // }
     printf("DPS310 initialized successfully!\n");
 
     MPU6050_Init(I2C_PORT);
@@ -70,7 +64,8 @@ int main() {
     uint32_t ledPrev = 0;
     bool ledState = false;
 
-    float ErrorM1, ErrorM2, setp, pvar, Kp,Ki,Kd,pulseM1,pulseM2,currAngle,addAngle, angle, throttleM1, throttleM2, baselineM1, baselineM2;
+    // float ErrorM1, ErrorM2, setp, pvar, Kp,Ki,Kd,pulseM1,pulseM2,currAngle,addAngle, angle, throttleM1, throttleM2, baselineM1, baselineM2;
+    double ErrorM1, ErrorM2, setp, pvar, Kp,Ki,Kd,pulseM1,pulseM2,currAngle,addAngle, angle, throttleM1, throttleM2, baselineM1, baselineM2;
 
     angle = setp = addAngle = ErrorM1 = ErrorM2 = throttleM1 = throttleM2 = baselineM1 = baselineM2 = pulseM1 = pulseM2 = 0;
 
@@ -79,76 +74,69 @@ int main() {
     UP = DOWN = 0;
     uint16_t throttleVal, brakeVal;
     
-    Kp = 0.0007;
-    Ki = 0.0;
-    Kd = 0.00;
+    Kp = 0.11;
+    Ki = 0.65;
+    Kd = 0.25;
 
     while (true) {
 
-        // res = i2c_read_measurement(ctx, &temp, &pressure, &humidity);
-        // if (res) {
-        //         printf("Failed to read measurements...\n");
-        //         return -1;
-        // }
         absPressure = (pressure - avgPressure);
-        //fflush(stdout);
         MPU6050_Read_All(I2C_PORT,&MPU6050);
             AngX = MPU6050.KalmanAngleX;
             AngY = MPU6050.KalmanAngleY;
 
         read_controller(UART_PORT,M1_pin,&UP,&DOWN,&throttleVal,&brakeVal);
 
-        pvar = AngX/1.00000000;
-        angle = ((DOWN*1.00000-UP*1.0000)*0.005);
+        pvar = (double)AngX;
+        angle = (((double)DOWN-(double)UP)*0.005);
         addAngle = (angle/1020);
         setp +=  addAngle;
 
         ErrorM1 = pvar - setp;
         ErrorM2 = setp - pvar;
 
+        baselineM1 = sin((pvar*2*3.14)/360)*50;
+        baselineM2 = (-1)*sin((pvar*2*3.14)/360)*75;
 
-        baselineM1 = sinf((pvar*2*3.14)/360)*65;
-        baselineM2 = (-1)*sinf((pvar*2*3.14)/360)*65;
+        if(AngX<0){baselineM1 = 0;}           
+        if(AngX>0){baselineM2 = 0;}
 
-        PID_quiet(&ErrorM1,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM1,&baselineM1);
-        PID_quiet(&ErrorM2,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM2, &baselineM2);
+        // PID_quiet_M1(&ErrorM1,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM1,&baselineM1);
+        // PID_quiet_M2(&ErrorM2,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM2, &baselineM2);
+        // throttleM1 = 125 + baselineM1 + pulseM1; 
+        // throttleM2 = 125 + baselineM2 + pulseM2;     //old pid function
 
-        if(AngX<0){
-            baselineM1 = 0;
-        }           
-        if(AngX>0){
-            baselineM2 = 0;
-        }
+        PID(&ErrorM1,Kp,Ki,Kd,&pulseM1,&pulseM2,&baselineM1,&baselineM2);
+    
+        throttleM1 = 140 + pulseM1;     //new pid function
+        throttleM2 = 140 + pulseM2;
 
-        throttleM1 = 125 + baselineM1 + pulseM1; 
-        throttleM2 = 125 + baselineM2 + pulseM2;
-
-        if(throttleM1>190){throttleM1 = 180;}
-        if(throttleM2>190){throttleM2 = 180;}
-
+        if(throttleM1>190){throttleM1 = 190;}
+        if(throttleM2>190){throttleM2 = 190;}
 
         pwm_set_chan_level(sliceM1,0,throttleM1);
         pwm_set_chan_level(sliceM2,0,throttleM2);
-
 
         if((ledCurr-ledPrev)>=interval){
                 ledPrev = ledCurr;
                 ledState = !ledState;
 
                 led_on(6,ledState);
-                printf("Temp: %.5f C, Pressure: %.5f hPa, Throttle: %d, Brake: %d, X: %f, Y: %f,\n", temp,absPressure,UP,DOWN,AngX,AngY);
-                printf("\nSetpoint: %f\n",setp); 
-                printf("\nPulse M1: %f\n",throttleM1);   
-                printf("\nError M1: %f\n",ErrorM1);
-                printf("\nPulse M2: %f\n",throttleM2);   
-                printf("\nError M2: %f\n",ErrorM2);
-                printf("\ncurrent Angle: %f\n",pvar);
-                printf("\n\n\n\n Baseline M1: %f",baselineM1);
-                printf("\n\n\n\n Baseline M2: %f",baselineM2);
-
+                printf("\nTemp: %.5f C, Pressure: %.5f hPa, Throttle: %d, Brake: %d, X: %f, Y: %f,\n", temp,absPressure,UP,DOWN,AngX,AngY);
+                printf("\nSetpoint: %f",setp); 
+                printf("\nThrottle M1: %f",throttleM1);   
+                printf("\nError M1: %f",ErrorM1);
+                printf("\nThrottle M2: %f",throttleM2);   
+                printf("\nError M2: %f",ErrorM2);
+                printf("\nCurrent Angle: %f",pvar);
+                printf("\nPulse M1: %f",pulseM1);
+                printf("\nPulse M2: %f",pulseM2);
 
         }
         ledCurr = time_us_32();
+
+}
+}
 
 
 //==========================================================================//
@@ -162,12 +150,22 @@ int main() {
 
 //==========================================================================//
 
-        // PID(&ErrorM1,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM1,&baselineM1);
-        // PID(&ErrorM2,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM2,&baselineM2);
-
-
-}
-}
+// PID(&ErrorM1,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM1,&baselineM1);
+// PID(&ErrorM2,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM2,&baselineM2);
 
 
 
+
+// void *ctx = NULL;
+// int res = i2c_init_sensor(get_i2c_sensor_type("DPS310"), I2C_PORT, 0x77, &ctx);
+// if (res) {
+//     printf("DPS310 Failed to initialize ...\n");
+//     return -1;
+// }
+
+
+// res = i2c_read_measurement(ctx, &temp, &pressure, &humidity);
+// if (res) {
+//         printf("Failed to read measurements...\n");
+//         return -1;
+// }

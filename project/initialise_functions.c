@@ -9,6 +9,7 @@
 #include "initialise_functions.h"
 
 //====================================================================================================
+
 const uint16_t i2c_timeout = 100;
 const double Accel_Z_corrector = 14418.0;
 uint32_t timer;
@@ -118,82 +119,6 @@ void led_on(int ledPin, bool state){
 
 }
 
-void read_throttle(int pwm_pin, int* c,uint16_t* throttleVal){
-    uint8_t buffer[1];
-    uint8_t throttleArray[5];
-    uint32_t joined;
-    //uint16_t throttleVal;
-    uint slice = pwm_gpio_to_slice_num(pwm_pin);
-
-    //pwm_set_chan_level(slice,0,140);
-    if (uart_is_readable(uart0) == true){
-        while (true) {
-            led_on(7,true);
-            uart_read_blocking(uart0, buffer, 1);
-            if (buffer[0] == 0xFF) {
-                break;
-            }
-        }
-
-        uart_read_blocking(uart0, throttleArray, 4);
-    led_on(7,false);
-    buffer[0]=0;
-    joined = 0;
-
-    for (int j = 0; j<4; j++){
-        //printf("%d ",throttleArray[j]);
-        joined += (throttleArray[j]<<(8*(3-j))); 
-        }
-    
-    *throttleVal = 125 + (125*joined)/1020;
-
-    pwm_set_chan_level(slice,0,*throttleVal);
-    *c = joined;
-    }
-}
-
-void read_brake(int pwm_pin, int* d,uint16_t* brakeVal){
-    //uint8_t buffer[1];
-    uint8_t brakeArray[4];
-    uint32_t joined;
-    //uint16_t throttleVal;
-    uint slice = pwm_gpio_to_slice_num(pwm_pin);
-
-
-//  if (uart_is_readable(uart0) == true){
-//         while (true) {
-//             led_on(7,true);
-//             uart_read_blocking(uart0, buffer, 1);
-//             if (buffer[0] == 0xFE) {
-//                 break;
-//             }
-//         }
-
-//     uart_read_blocking(uart0, brakeArray, 4);
-//     // led_on(7,false);
-//     buffer[0]=0;
-
-
-//    }
-   joined = 0;
-
-   for (int j = 0; j<4; j++){
-       //printf("%d ",brakeArray[j]);
-       joined += (brakeArray[j]<<(8*(3-j))); 
-       }
-
-   printf("\n");
-   
-   printf("\nBrake: %d\n\n",joined);
-   
-   *brakeVal = 125 + (125*joined)/1020;
-
-   //    pwm_set_chan_level(slice,0,*brakeVal);
-
-   *d = joined;
-
-}
-
 void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake){    
 
     uint8_t check[1];
@@ -233,19 +158,11 @@ void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t*
     
 }
 
-void PID(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl){
-    float PID,P,D,dE,dt;
-    static float I = 0;
-    static float prevE = 0;
-    static uint64_t prevTime = 0;
-
-    if(*sp>100 || *sp<-100){
-        *sp = 0;}
-    if (*sp>50 && *sp<100){ 
-        *sp =50;}
-    if(*sp<-50 && *sp>-100){
-        *sp = -50;}
-    
+void PID(double* E, double Kp, double Ki, double Kd,double* pulse1, double* pulse2, double* blm1, double* blm2){
+    double PID,P,D,dE,dt;
+    static double I = 0;
+    static double prevE = 0;
+    static uint64_t prevTime = 0;    
     uint64_t currTime = time_us_64();
 
     dt = (currTime-prevTime)/1000000.0;
@@ -254,31 +171,36 @@ void PID(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxste
 
     P = Kp*(*E);
 
-    if(*pulse>9 && *pulse<251){
-    I += Ki*(*E)*dt;
-    }
-    
-    D = dE/dt;      
-    PID = P + I + Kd*D;
-    
-    // if(PID>*maxstep){
-    //     PID = *maxstep;}
-    // if(PID<-(*maxstep)){
-    //     PID= -(*maxstep);}
+    if(*pulse1>0 && *pulse1<85){
+    I += Ki*(*E)*dt;}
 
-    *pulse += PID;
-    if(*pulse>125){
-        *pulse = 125;
-    }
-    if(*pulse<*bl){
-        *pulse = *bl;
-    }
+    double r = 0.01;
+
+    double Derivative = dE / dt;
+
+    static double filterD = 0;
+
+    filterD = filterD * (1.0 - r) + r * Derivative;
+    
+    D = Kd*(filterD);      
+
+    *pulse1 = *blm1 + P + I + D; 
+    if(*pulse1>135){*pulse1 = 135;}
+    if(*pulse1<0){*pulse1 = 0;}
+
+    *pulse2 = (*blm2) - (P + I + D);
+    if(*pulse2>135){*pulse2 = 135;}
+    if(*pulse2<0){*pulse2 = 0;}
 
     prevTime = currTime;
     prevE = *E;
+        // printf("M1 PID: P=%f, I=%f, D=%f, PID=%f, pulse=%f\n", P, I, D, PID, *pulse1);
+        // printf("M2 PID: P=%f, I=%f, D=%f, PID=%f, pulse=%f\n", P, I, D, PID, *pulse2);
+
+
 }
 
-void PID_quiet(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl){
+void PID_quiet_M1(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl){
     float PID,P,D,dE,dt;
     static float I = 0;
     static float prevE = 0;
@@ -291,16 +213,16 @@ void PID_quiet(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* 
     if(*sp<-50 && *sp>-100){
         *sp = -50;}
     
-    uint64_t currTime = time_us_64();
+    uint64_t currTimeM1 = time_us_64();
 
-    dt = (currTime-prevTime)/1000000.0;
+    dt = (currTimeM1-prevTime)/1000000.0;
     if (dt < 0.000001) {dt = 0.000001;}   
     dE = *E - prevE;
 
     P = Kp*(*E);
 
-    if(*pulse>9 && *pulse<126){
-    I += Ki*(*E)*dt;
+    if(*pulse<126){
+    I = 0.97*I + Ki*(*E)*dt;
     }
     
     D = dE/dt;      
@@ -312,19 +234,69 @@ void PID_quiet(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* 
         PID= -(*maxstep);}
 
     *pulse += PID;
-    if(*pulse>75){
-        *pulse = 75;
+    if(*pulse>85){
+        *pulse = 85;
     }
-    if(*pulse<fabs(*bl)){
-        *pulse = 0;
+    // if(*pulse<fabs(*bl)){
+    //     *pulse = 0;
+    // }
+    if(*pulse<1){*pulse = 1;}
+
+    prevTime = currTimeM1;
+    prevE = *E;
+    printf("M1 PID: P=%f, I=%f, D=%f, PID=%f, pulse=%f\n", P, I, D, PID, *pulse);
+}
+
+void PID_quiet_M2(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl){
+    float PID,P,D,dE,dt;
+    static float I2 = 0;
+    static float prevE2 = 0;
+    static uint64_t prevTime2 = 0;
+
+    if(*sp>100 || *sp<-100){
+        *sp = 0;}
+    if (*sp>50 && *sp<100){ 
+        *sp =50;}
+    if(*sp<-50 && *sp>-100){
+        *sp = -50;}
+    
+    uint64_t currTime = time_us_64();
+
+    dt = (currTime-prevTime2)/1000000.0;
+    if (dt < 0.000001) {dt = 0.000001;}   
+    dE = *E - prevE2;
+
+    P = Kp*(*E);
+
+    if(*pulse<75){
+    I2 = 0.99*I2 + Ki*(*E)*dt;
     }
     
-    prevTime = currTime;
-    prevE = *E;
+    D = dE/dt;      
+    PID = P - I2 + Kd*D;
+    
+    if(PID>*maxstep){
+        PID = *maxstep;}
+    if(PID<-(*maxstep)){
+        PID= -(*maxstep);}
+
+    *pulse += PID;
+    if(*pulse>85){
+        *pulse = 85;
+    }
+    // if(*pulse<fabs(*bl)){
+    //     *pulse = 0;
+    // }
+    
+    if(*pulse<1){*pulse = 1;}
+
+    prevTime2 = currTime;
+    prevE2 = *E;
+    printf("M2 PID: P=%f, I=%f, D=%f, PID=%f, pulse=%f\n", P, I2, D, PID, *pulse);
 }
 
 void PIDStruct(pid_vars *Data){
-    
+
 }
 
 uint8_t MPU6050_Init(i2c_inst_t *i2cPort) {
