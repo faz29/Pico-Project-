@@ -75,7 +75,7 @@ int main() {
     uint16_t throttleVal, brakeVal;
     
     Kp = 0.11;
-    Ki = 0.65;
+    Ki = 0.64;
     Kd = 0.25;
 
     while (true) {
