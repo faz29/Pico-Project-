@@ -38,6 +38,7 @@
     "raspberry-pi-pico.ninjaPath": "${HOME}/.pico-sdk/ninja/v1.12.1/ninja",
     "files.associations": {
         "pwm.h": "c",
-        "timer.h": "c"
+        "timer.h": "c",
+        "initialise_functions.h": "c"
     }
 }

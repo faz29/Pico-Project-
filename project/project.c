@@ -1,11 +1,9 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
-#include "hardware/interp.h" //likely not needed
 #include "hardware/timer.h"
 #include "hardware/watchdog.h" //likely not needed
 #include "hardware/clocks.h"
-#include "pico/cyw43_arch.h" //likely not needed -- only used for controlling LED
 #include "hardware/uart.h"
 #include "hardware/gpio.h"
 #include "pico/multicore.h" // potentially run sensors and flight control code different cores
@@ -19,8 +17,7 @@
 
 
 int main() {
-    int pause;
-    // int throttleVal;
+    int pwm;
     float AngX, AngY;
     MPU6050_t MPU6050;
 
@@ -40,12 +37,9 @@ int main() {
     uint sliceM1 = pwm_gpio_to_slice_num(M1_pin);
     uint sliceM2 = pwm_gpio_to_slice_num(M2_pin);
 
-
     //esc_calibration(M1_pin,0,6,500);
 
     printf("Hello, world! \n");
-
-    printf("DPS310 initialized successfully!\n");
 
     MPU6050_Init(I2C_PORT);
 
@@ -101,11 +95,6 @@ int main() {
         if(AngX<0){baselineM1 = 0;}           
         if(AngX>0){baselineM2 = 0;}
 
-        // PID_quiet_M1(&ErrorM1,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM1,&baselineM1);
-        // PID_quiet_M2(&ErrorM2,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM2, &baselineM2);
-        // throttleM1 = 125 + baselineM1 + pulseM1; 
-        // throttleM2 = 125 + baselineM2 + pulseM2;     //old pid function
-
         PID(&ErrorM1,Kp,Ki,Kd,&pulseM1,&pulseM2,&baselineM1,&baselineM2);
     
         throttleM1 = 140 + pulseM1;     //new pid function
@@ -144,28 +133,9 @@ int main() {
 //disable uart input if using this
 
     //     printf("enter pulse width between 125 and 250 us");
-    //     scanf("%d",&pause);
+    //     scanf("%d",&pwm);
         
-    //    pwm_set_chan_level(sliceM1,0,pause);
+    //    pwm_set_chan_level(sliceM1,0,pwm);
 
 //==========================================================================//
 
-// PID(&ErrorM1,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM1,&baselineM1);
-// PID(&ErrorM2,&setp,&pvar,Kp,Ki,Kd,&maxstep,&pulseM2,&baselineM2);
-
-
-
-
-// void *ctx = NULL;
-// int res = i2c_init_sensor(get_i2c_sensor_type("DPS310"), I2C_PORT, 0x77, &ctx);
-// if (res) {
-//     printf("DPS310 Failed to initialize ...\n");
-//     return -1;
-// }
-
-
-// res = i2c_read_measurement(ctx, &temp, &pressure, &humidity);
-// if (res) {
-//         printf("Failed to read measurements...\n");
-//         return -1;
-// }

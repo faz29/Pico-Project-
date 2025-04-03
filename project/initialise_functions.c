@@ -276,9 +276,7 @@ void MPU6050_Read_Gyro(i2c_inst_t *i2cPort, MPU6050_t *DataStruct){
     uint8_t addr[1] = {GYRO_XOUT_H_REG};
 
     // Read 6 BYTES of data starting from GYRO_XOUT_H register
-
-    //HAL_I2C_Mem_Read(I2Cx, MPU6050_ADDR, GYRO_XOUT_H_REG, 1, Rec_Data, 6, i2c_timeout);
-
+    
     i2c_write_blocking(i2cPort,MPU6050_ADDR,addr,1,true);
     i2c_read_blocking(i2cPort,MPU6050_ADDR,Rec_Data,6,false);
 
@@ -305,8 +303,6 @@ void MPU6050_Read_Temp(i2c_inst_t *i2cPort, MPU6050_t *DataStruct){
     uint8_t addr[1] = {TEMP_OUT_H_REG};
 
     // Read 2 BYTES of data starting from TEMP_OUT_H_REG register
-
-    // HAL_I2C_Mem_Read(I2Cx, MPU6050_ADDR, TEMP_OUT_H_REG, 1, Rec_Data, 2, i2c_timeout);
 
     i2c_write_blocking(i2cPort,MPU6050_ADDR,addr,1,true);
     i2c_read_blocking(i2cPort,MPU6050_ADDR,Rec_Data,2,false);
@@ -343,12 +339,6 @@ void MPU6050_Read_All(i2c_inst_t *i2cPort, MPU6050_t *DataStruct){
     DataStruct->Gx = DataStruct->Gyro_X_RAW / 131.0;
     DataStruct->Gy = DataStruct->Gyro_Y_RAW / 131.0;
     DataStruct->Gz = DataStruct->Gyro_Z_RAW / 131.0;
-
-    // Kalman angle solve
-    //double dt = (double) (HAL_GetTick() - timer) / 1000;
-    //for STM MCUs hal_gettick() returns the time in milliseconds as a 32 bit unsigned int
-    //with a pico, using time_us_32() returns time in as uint32_t microseconds however,
-    //so it needs to be divided by 1E6 to return the same value 
 
     double dt = (double) (time_us_32()-timer)/1E6;
     timer = time_us_32();

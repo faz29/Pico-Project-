@@ -8,12 +8,6 @@
 #define MPU6050_SDA 20
 #define MPU6050_SCL 21
 
-// #define DPS310_SDA 12
-// #define DPS310_SCL 13
-
-//#define Magnetomer_SDA 
-//#define Magnetomer_SCL
-
 #define UART_PORT uart1
 #define UART_TX 4
 #define UART_RX 5
@@ -21,23 +15,24 @@
 
 #define M1_pin 10
 #define M2_pin 12
+#define M3_pin
+#define M4_pin
 
 typedef struct {
 
-    float PID;
-    float P;
-    float I;
-    float D;
-    float Kp;
-    float Ki;
-    float Kd;
-    float E;
-    float prevE;
-    float prevTime;
-    float bl;
-    float pulse;
-    float pv;
-    float sp;
+    double PID;
+    double P;
+    double I;
+    double D;
+    double Kp;
+    double Ki;
+    double Kd;
+    double E;
+    double prevE;
+    double prevTime;
+    double pulse;
+    double pv;
+    double sp;
 
 } pid_vars;
 
@@ -88,10 +83,7 @@ typedef struct {
 
 //====================================================================================================
 
-
 void i2c_initialisation(i2c_inst_t *port,uint freq);
-
-uint8_t wifi_chip_initialisation(void);//likely not used 
 
 void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin, int data, int stop);  
 
@@ -108,10 +100,6 @@ void read_brake(int pwm_pin, int* c, uint16_t* brake);
 void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake);
 
 void PID(double* E, double Kp, double Ki, double Kd,double* pulse1, double* pulse2, double* blm1, double* blm2);
-
-void PID_quiet_M1(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl);
-
-void PID_quiet_M2(float* E, float*sp, float* pv, float Kp, float Ki, float Kd,int* maxstep,float* pulse, float* bl);
 
 void PIDStruct(pid_vars *Data);
 
