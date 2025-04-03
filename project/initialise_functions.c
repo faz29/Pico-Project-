@@ -30,10 +30,6 @@ Kalman_t KalmanY = {
 void i2c_initialisation(i2c_inst_t *port,uint freq){
 // I2C Initialisation. Using it at 400Khz.
     i2c_init(port, freq);
-    // gpio_set_function(DPS310_SDA, GPIO_FUNC_I2C);
-    // gpio_set_function(DPS310_SCL, GPIO_FUNC_I2C);
-    // gpio_pull_up(DPS310_SDA);
-    // gpio_pull_up(DPS310_SCL);
 
     gpio_set_function(MPU6050_SDA, GPIO_FUNC_I2C);
     gpio_set_function(MPU6050_SCL, GPIO_FUNC_I2C);
@@ -53,16 +49,6 @@ int P;
 
 }
 
-uint8_t wifi_chip_initialisation(void){
-        // Initialise the Wi-Fi chip
-    if (cyw43_arch_init()==-1) {
-        printf("Wi-Fi init failed\n");
-        return -1;
-    }   
-    else{
-        printf("Wifi chip initialised !\n");
-    }
-}
 
 void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin, int data_bits, int stop_bits){    
     
@@ -70,7 +56,6 @@ void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int r
     gpio_set_function(tx_pin, UART_FUNCSEL_NUM(uart_port,tx_pin));
     gpio_set_function(rx_pin, UART_FUNCSEL_NUM(uart_port,rx_pin));    
 
-    
     uart_set_hw_flow(uart_port, false, false);
     uart_set_format(uart_port, data_bits, stop_bits, UART_PARITY_NONE);
     uart_set_fifo_enabled(uart_port, false);
@@ -91,9 +76,6 @@ void pwm_initialisation(int pwm_pin,uint chan,int pulse_width,int ledPin){
     printf("PWM initialised on pin %d !\n",pwm_pin);
 
     sleep_ms(2000);
-    // gpio_init(ledPin);
-    // gpio_set_dir(ledPin,GPIO_OUT);
-    // gpio_put(ledPin,1);
 }
 
 void esc_calibration(int pwm_pin,uint chan,int ledPin, int arm_sleep){
@@ -146,10 +128,7 @@ void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t*
     }
     
     *throttle = 125 + (125*throttleJoined)/1020;
-
     *brake = 125 + (125*brakeJoined)/1020;
-
-    // pwm_set_chan_level(slice,0,*throttle);
 
     *t = throttleJoined;
     *b = brakeJoined;    
@@ -197,10 +176,56 @@ void PID(double* E, double Kp, double Ki, double Kd,double* pulse1, double* puls
         // printf("M1 PID: P=%f, I=%f, D=%f, PID=%f, pulse=%f\n", P, I, D, PID, *pulse1);
         // printf("M2 PID: P=%f, I=%f, D=%f, PID=%f, pulse=%f\n", P, I, D, PID, *pulse2);
 
-
 }
 
-void PIDStruct(pid_vars *Data){
+void PIDStruct(pid_vars *pid){
+    // double PID,P,D,dE
+    double dt, dE;
+    // static double I = 0;
+    // static double prevE = 0;         //make sure to iniitalise these values in the main function
+    static uint64_t prevTime = 0;    
+    uint64_t currTime = time_us_64();
+
+    dt = (currTime-prevTime)/1000000.0;
+    if (dt < 0.000001) {dt = 0.000001;}   
+    //dE = *E - prevE;
+    dE = pid->E - pid->prevE;
+
+    // P = Kp*(*E);
+    pid->P = pid->Kp*(pid->E);
+
+    // if(*pulse1>0 && *pulse1<85){
+    // I += Ki*(*E)*dt;}
+
+    if(pid->pulse > 0 && pid->pulse < pid->max){
+        pid->I += pid->Ki*pid->E*dt;
+    }
+
+    // double r = 0.01;         smoothing factor for lowpass filter on derivative term
+
+    double Derivative = dE / dt;
+
+    static double filterD = 0;
+
+    filterD = filterD * (1.0 - pid->r) + pid->r * Derivative;
+    
+    // D = Kd*(filterD);      
+
+    pid->D = pid->Kd*filterD;
+    
+    // *pulse1 = *blm1 + P + I + D; 
+    // if(*pulse1>135){*pulse1 = 135;}
+    // if(*pulse1<0){*pulse1 = 0;}
+
+    pid->pulse = pid->P + pid->I + pid->D;
+
+
+    // *pulse2 = (*blm2) - (P + I + D);
+    // if(*pulse2>135){*pulse2 = 135;}
+    // if(*pulse2<0){*pulse2 = 0;}
+
+    prevTime = currTime;
+    pid->prevE = pid->E;
 
 }
 

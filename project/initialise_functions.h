@@ -5,12 +5,12 @@
 #include <stdint.h>
 
 #define I2C_PORT i2c0
-#define MPU6050_SDA 20
-#define MPU6050_SCL 21
+#define MPU6050_SDA 4
+#define MPU6050_SCL 5
 
 #define UART_PORT uart1
-#define UART_TX 4
-#define UART_RX 5
+#define UART_TX 8
+#define UART_RX 9
 #define BAUD_RATE 115200
 
 #define M1_pin 10
@@ -19,20 +19,21 @@
 #define M4_pin
 
 typedef struct {
-
-    double PID;
+//make sure to iniitalise these values that need to be 0 in the main function
     double P;
-    double I;
+    double I;   //init 0
     double D;
     double Kp;
     double Ki;
     double Kd;
-    double E;
-    double prevE;
-    double prevTime;
-    double pulse;
+    double E;      //init 0
+    double prevE;   //init 0
+    double prevTime;    //init 0
+    double pulse;   //init 0
     double pv;
     double sp;
+    int max;
+    float r;
 
 } pid_vars;
 
@@ -92,10 +93,6 @@ void pwm_initialisation(int pwm_pin,uint chan,int pulse_width,int ledPin);
 void esc_calibration(int pwm_pin,uint chan,int ledPin, int arm_sleep);
 
 void led_on(int ledPin, bool state);
-
-void read_throttle(int pwm_pin, int* c, uint16_t* throttleVal);
-
-void read_brake(int pwm_pin, int* c, uint16_t* brake);
 
 void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake);
 
