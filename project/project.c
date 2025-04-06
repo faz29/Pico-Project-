@@ -89,12 +89,6 @@ int main() {
         ErrorM1 = pvar - setp;
         ErrorM2 = setp - pvar;
 
-        baselineM1 = sin((pvar*2*3.14)/360)*50;
-        baselineM2 = (-1)*sin((pvar*2*3.14)/360)*75;
-
-        if(AngX<0){baselineM1 = 0;}           
-        if(AngX>0){baselineM2 = 0;}
-
         PID(&ErrorM1,Kp,Ki,Kd,&pulseM1,&pulseM2,&baselineM1,&baselineM2);
     
         throttleM1 = 140 + pulseM1;     //new pid function

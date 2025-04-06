@@ -84,8 +84,85 @@ void PID(double* E, double Kp, double Ki, double Kd,double* pulse1, double* puls
     prevE = *E;
 }
 
+Back Right:
+output motor 1 = throttle input - roll input - pitch input - yaw input
+
+Front Right:
+output motor 2 = throttle input - roll input + pitch input + yaw input
+
+Front Left:
+output motor 3 = throttle input + roll input + pitch input - yaw input
+
+Back Left:
+output motor 4 = throttle input + roll input - pitch input + yaw input
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+OLD FUNCTIONS NOT NEEDED:
 
 void read_throttle(int pwm_pin, int* c,uint16_t* throttleVal){
     uint8_t buffer[1];

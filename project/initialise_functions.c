@@ -106,7 +106,7 @@ void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t*
     uint8_t check[1];
     uint8_t controllerArray[9];
     uint32_t brakeJoined;
-    uint32_t throttleJoined;
+    uint32_t throttleJoined;    
     uint slice = pwm_gpio_to_slice_num(pwm_pin);
 
     if (uart_is_readable(uart_port) == true){
