@@ -115,7 +115,7 @@ void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t*
             uart_read_blocking(uart_port, check, 1);
             if (check[0] == 0xFF) {
 
-    //    }
+    //        }
 
         uart_read_blocking(uart_port, controllerArray, 8);
     check[0]= throttleJoined = 0;
