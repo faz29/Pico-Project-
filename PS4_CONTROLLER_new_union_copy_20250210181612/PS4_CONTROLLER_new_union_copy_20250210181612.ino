@@ -211,6 +211,21 @@ void setup() {
   // - Second one, which is a "virtual device", is a mouse.
   // By default, it is disabled.
   BP32.enableVirtualDevice(false);
+
+  Serial.println("Adafruit_MMC5603 Magnetometer Test");
+  Serial.println("");
+
+  /* Initialise the sensor */
+  if (!mmc.begin(MMC56X3_DEFAULT_ADDRESS, &Wire)) { // I2C mode
+      /* There was a problem detecting the MMC5603 ... check your connections */
+      Serial.println("Ooops, no MMC5603 detected ... Check your wiring!");
+      while (1)
+          delay(10);
+  }
+
+  /* Display some basic information on this sensor */
+  mmc.printSensorDetails();
+
 }
 
 void loop() {
