@@ -49,7 +49,6 @@ int P;
 
 }
 
-
 void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin, int data_bits, int stop_bits){    
     
     //set up the UART TX and RX pins
@@ -64,7 +63,7 @@ void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int r
     printf("UART initialised at %d baud rate with TX on pin %d and RX on pin %d !\n", uart_Brate, tx_pin, rx_pin);
 }
 
-void pwm_initialisation(int pwm_pin,uint chan,int pulse_width,int ledPin){
+void pwm_initialisation(int pwm_pin,uint chan,int pulse_width){
     gpio_set_function(pwm_pin,GPIO_FUNC_PWM);
     uint slice = pwm_gpio_to_slice_num(pwm_pin);
 
@@ -75,23 +74,7 @@ void pwm_initialisation(int pwm_pin,uint chan,int pulse_width,int ledPin){
     pwm_set_enabled(slice,true);    
     printf("PWM initialised on pin %d !\n",pwm_pin);
 
-    sleep_ms(2000);
-}
-
-void esc_calibration(int pwm_pin,uint chan,int ledPin, int arm_sleep){
-    uint slice = pwm_gpio_to_slice_num(pwm_pin);
-    //arm sequence: zero throttle (125us), small delay, then full (250us), small delay then zero throttle.
-    pwm_set_chan_level(slice,chan,125); 
-    sleep_ms(arm_sleep); 
-    pwm_set_chan_level(slice,chan,250);
-    sleep_ms(arm_sleep);
-    pwm_set_chan_level(slice,chan,125); 
-
-    //turn on Led when arming is complete
-    gpio_init(ledPin);
-    gpio_set_dir(ledPin,GPIO_OUT);
-    gpio_put(ledPin,1);
-    printf("Arm sequence complete!\n");
+    sleep_ms(100);
 }
 
 void led_on(int ledPin, bool state){
@@ -101,130 +84,70 @@ void led_on(int ledPin, bool state){
 
 }
 
-void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake){    
+void read_controller_data_structure(uart_inst_t* uart_port, controller_vars *cdata){    
 
     uint8_t check[1];
-    uint8_t controllerArray[9];
-    uint32_t brakeJoined;
-    uint32_t throttleJoined;    
-    uint slice = pwm_gpio_to_slice_num(pwm_pin);
+    uint8_t controllerArray[25];   
 
     if (uart_is_readable(uart_port) == true){
         // while (true) {
             led_on(7,true);
             uart_read_blocking(uart_port, check, 1);
             if (check[0] == 0xFF) {
-
     //        }
+        uart_read_blocking(uart_port, controllerArray, 24);
+        check[0] = cdata->throttle = cdata->brake = cdata->rx = cdata->ry = cdata->lx = cdata->ly = 0;
 
-        uart_read_blocking(uart_port, controllerArray, 8);
-    check[0]= throttleJoined = 0;
-
-    for (int j = 0; j<4; j++){
-        throttleJoined += (controllerArray[j]<<(8*(3-j))); 
+        for (int j = 0; j<4; j++){
+            cdata->throttle += (controllerArray[j]<<(8*(3-j))); 
+            }
+        for (int j = 4; j<8; j++){
+            cdata->brake += (controllerArray[j]<<(8*(7-j)));
         }
-    for (int j = 4; j<8; j++){
-        brakeJoined += (controllerArray[j]<<(8*(7-j)));
-    }
-    
-    *throttle = 125 + (125*throttleJoined)/1020;
-    *brake = 125 + (125*brakeJoined)/1020;
 
-    *t = throttleJoined;
-    *b = brakeJoined;    
+        for (int j = 8; j<12; j++){
+            cdata->rx += (controllerArray[j]<<(8*(11-j)));
+        }
+        for (int j = 12; j<16; j++){
+            cdata->ry += (controllerArray[j]<<(8*(15-j)));
+        }
+        for (int j = 16; j<20; j++){
+            cdata->lx += (controllerArray[j]<<(8*(19-j)));
+        }
+        for (int j = 20; j<24; j++){
+            cdata->ly += (controllerArray[j]<<(8*(23-j)));
+        }
+    
 }
 }
     
-}
-
-void PID(double* E, double Kp, double Ki, double Kd,double* pulse1, double* pulse2, double* blm1, double* blm2){
-    double PID,P,D,dE,dt;
-    static double I = 0;
-    static double prevE = 0;
-    static uint64_t prevTime = 0;    
-    uint64_t currTime = time_us_64();
-
-    dt = (currTime-prevTime)/1000000.0;
-    if (dt < 0.000001) {dt = 0.000001;}   
-    dE = *E - prevE;
-
-    P = Kp*(*E);
-
-    if(*pulse1>0 && *pulse1<85){
-    I += Ki*(*E)*dt;}
-
-    double r = 0.01;
-
-    double Derivative = dE / dt;
-
-    static double filterD = 0;
-
-    filterD = filterD * (1.0 - r) + r * Derivative;
-    
-    D = Kd*(filterD);      
-
-    *pulse1 = *blm1 + P + I + D; 
-    if(*pulse1>135){*pulse1 = 135;}
-    if(*pulse1<0){*pulse1 = 0;}
-
-    *pulse2 = (*blm2) - (P + I + D);
-    if(*pulse2>135){*pulse2 = 135;}
-    if(*pulse2<0){*pulse2 = 0;}
-
-    prevTime = currTime;
-    prevE = *E;
-        // printf("M1 PID: P=%f, I=%f, D=%f, PID=%f, pulse=%f\n", P, I, D, PID, *pulse1);
-        // printf("M2 PID: P=%f, I=%f, D=%f, PID=%f, pulse=%f\n", P, I, D, PID, *pulse2);
-
 }
 
 void PIDStruct(pid_vars *pid){
-    // double PID,P,D,dE
     double dt, dE;
-    // static double I = 0;
-    // static double prevE = 0;         //make sure to iniitalise these values in the main function
-    static uint64_t prevTime = 0;    
     uint64_t currTime = time_us_64();
 
-    dt = (currTime-prevTime)/1000000.0;
+    pid->E = pid->sp-pid->pv;
+
+    dt = (currTime-pid->prevTime)/1000000.0;
     if (dt < 0.000001) {dt = 0.000001;}   
-    //dE = *E - prevE;
     dE = pid->E - pid->prevE;
 
-    // P = Kp*(*E);
     pid->P = pid->Kp*(pid->E);
-
-    // if(*pulse1>0 && *pulse1<85){
-    // I += Ki*(*E)*dt;}
 
     if(pid->pulse > 0 && pid->pulse < pid->max){
         pid->I += pid->Ki*pid->E*dt;
     }
 
-    // double r = 0.01;         smoothing factor for lowpass filter on derivative term
-
     double Derivative = dE / dt;
-
-    static double filterD = 0;
-
-    filterD = filterD * (1.0 - pid->r) + pid->r * Derivative;
+    // r = smoothing factor for lowpass filter on derivative term
+    pid->filterD = pid->filterD * (1.0 - pid->r) + pid->r * Derivative;
     
-    // D = Kd*(filterD);      
-
-    pid->D = pid->Kd*filterD;
+    pid->D = pid->Kd*pid->filterD;
     
-    // *pulse1 = *blm1 + P + I + D; 
-    // if(*pulse1>135){*pulse1 = 135;}
-    // if(*pulse1<0){*pulse1 = 0;}
-
     pid->pulse = pid->P + pid->I + pid->D;
 
-
-    // *pulse2 = (*blm2) - (P + I + D);
-    // if(*pulse2>135){*pulse2 = 135;}
-    // if(*pulse2<0){*pulse2 = 0;}
-
-    prevTime = currTime;
+    pid->prevTime = currTime;
     pid->prevE = pid->E;
 
 }
@@ -420,3 +343,104 @@ double Kalman_getAngle(Kalman_t *Kalman, double newAngle, double newRate, double
     return Kalman->angle;
 
 }
+
+
+//============================================
+//old functions:
+
+// void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake){    
+
+//     //old function not needed
+//     uint8_t check[1];
+//     uint8_t controllerArray[9];
+//     uint32_t brakeJoined;
+//     uint32_t throttleJoined;    
+//     uint slice = pwm_gpio_to_slice_num(pwm_pin);
+
+//     if (uart_is_readable(uart_port) == true){
+//         // while (true) {
+//             led_on(7,true);
+//             uart_read_blocking(uart_port, check, 1);
+//             if (check[0] == 0xFF) {
+
+//     //        }
+
+//         uart_read_blocking(uart_port, controllerArray, 8);
+//     check[0] = throttleJoined = brakeJoined = 0;
+
+//     for (int j = 0; j<4; j++){
+//         throttleJoined += (controllerArray[j]<<(8*(3-j))); 
+//         }
+//     for (int j = 4; j<8; j++){
+//         brakeJoined += (controllerArray[j]<<(8*(7-j)));
+//     }
+    
+//     *throttle = 125 + (125*throttleJoined)/1020;
+//     *brake = 125 + (125*brakeJoined)/1020;
+
+//     *t = throttleJoined;
+//     *b = brakeJoined;    
+// }
+// }
+    
+// }
+
+
+// void PID(double* E, double Kp, double Ki, double Kd,double* pulse1, double* pulse2, double* blm1, double* blm2){
+//   //old function
+//     double PID,P,D,dE,dt;
+//     static double I = 0;
+//     static double prevE = 0;
+//     static uint64_t prevTime = 0;    
+//     uint64_t currTime = time_us_64();
+//     dt = (currTime-prevTime)/1000000.0;
+//     if (dt < 0.000001) {dt = 0.000001;}   
+//     dE = *E - prevE;
+//     P = Kp*(*E);
+
+//     if(*pulse1>0 && *pulse1<85){
+//     I += Ki*(*E)*dt;}
+//     double r = 0.01;
+
+//     double Derivative = dE / dt;
+
+//     static double filterD = 0;
+
+//     filterD = filterD * (1.0 - r) + r * Derivative;
+    
+//     D = Kd*(filterD);      
+
+//     *pulse1 = *blm1 + P + I + D; 
+//     if(*pulse1>135){*pulse1 = 135;}
+//     if(*pulse1<0){*pulse1 = 0;}
+
+//     *pulse2 = (*blm2) - (P + I + D);
+//     if(*pulse2>135){*pulse2 = 135;}
+//     if(*pulse2<0){*pulse2 = 0;}
+
+//     prevTime = currTime;
+//     prevE = *E;
+//         // printf("M1 PID: P=%f, I=%f, D=%f, PID=%f, pulse=%f\n", P, I, D, PID, *pulse1);
+//         // printf("M2 PID: P=%f, I=%f, D=%f, PID=%f, pulse=%f\n", P, I, D, PID, *pulse2);
+
+// }
+
+
+// void esc_calibration(int pwm_pin,uint chan,int ledPin, int arm_sleep){
+//     uint slice = pwm_gpio_to_slice_num(pwm_pin);
+//     //arm sequence: zero throttle (125us), small delay, then full (250us), small delay then zero throttle.
+//     pwm_set_chan_level(slice,chan,125); 
+//     sleep_ms(arm_sleep); 
+//     pwm_set_chan_level(slice,chan,250);
+//     sleep_ms(arm_sleep);
+//     pwm_set_chan_level(slice,chan,125); 
+
+//     //turn on Led when arming is complete
+//     gpio_init(ledPin);
+//     gpio_set_dir(ledPin,GPIO_OUT);
+//     gpio_put(ledPin,1);
+//     printf("Arm sequence complete!\n");
+// }
+
+
+

@@ -162,6 +162,8 @@ output motor 4 = throttle input + roll input - pitch input + yaw input
 
 
 
+
+
 OLD FUNCTIONS NOT NEEDED:
 
 void read_throttle(int pwm_pin, int* c,uint16_t* throttleVal){

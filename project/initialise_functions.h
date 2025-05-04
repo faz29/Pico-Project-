@@ -13,10 +13,10 @@
 #define UART_RX 9
 #define BAUD_RATE 115200
 
-#define M1_pin 10
-#define M2_pin 12
-#define M3_pin
-#define M4_pin
+#define M1_pin 10 //front right
+#define M2_pin 12 //front left
+#define M3_pin 14 //back right
+#define M4_pin 16 //back left   
 
 #define RAD_TO_DEG 57.295779513082320876798154814105
 #define WHO_AM_I_REG 0x75
@@ -42,6 +42,7 @@ typedef struct {
     double prevE;   //init 0
     double prevTime;    //init 0
     double pulse;   //init 0
+    double filterD;
     double pv;
     double sp;
     int max;
@@ -102,15 +103,17 @@ void i2c_initialisation(i2c_inst_t *port,uint freq);
 
 void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin, int data, int stop);  
 
-void pwm_initialisation(int pwm_pin,uint chan,int pulse_width,int ledPin);
+void pwm_initialisation(int pwm_pin,uint chan,int pulse_width);
 
-void esc_calibration(int pwm_pin,uint chan,int ledPin, int arm_sleep);
+//void esc_calibration(int pwm_pin,uint chan,int ledPin, int arm_sleep);
 
 void led_on(int ledPin, bool state);
 
-void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake);
+//void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake);
 
-void PID(double* E, double Kp, double Ki, double Kd,double* pulse1, double* pulse2, double* blm1, double* blm2);
+//void PID(double* E, double Kp, double Ki, double Kd,double* pulse1, double* pulse2, double* blm1, double* blm2);
+
+void read_controller_data_structure(uart_inst_t* uart_port, controller_vars *cdata);
 
 void PIDStruct(pid_vars *Data);
 
