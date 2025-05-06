@@ -36,7 +36,6 @@ int main() {
     pwm_initialisation(M3_pin,0,125);
     pwm_initialisation(M4_pin,0,125);
 
-
     sleep_ms(2000);
 
     uint sliceM1 = pwm_gpio_to_slice_num(M1_pin);
@@ -68,15 +67,17 @@ int main() {
     int mmax = 200;
     int mmin = 125;
 
-    int oneshot125 = 125;
+    roll.Kp = 0.0;
+    roll.Kd = 0.0;
+    roll.Ki = 0.0;
 
-    roll.Kp = pitch.Kp = 0.4;
-    roll.Kd = pitch.Kd = 0.0;
-    roll.Ki = pitch.Ki = 0.0;
+    pitch.Kp = 0.0;
+    pitch.Kd = 0.0;
+    pitch.Ki = 0.0;
 
-    yaw.Kp = 0.2;
-    yaw.Kd = 0.0;
-    yaw.Ki = 0;
+    yaw.Kp = 0.0;
+    yaw.Kd = 0.0;   
+    yaw.Ki = 0.0;
 
     roll.r = pitch.r = yaw.r = 0.001;
 
@@ -86,6 +87,7 @@ int main() {
 
     while (true) {
         
+        //loop poll timer
         start = time_us_32();
 
         MPU6050_Read_All(I2C_PORT,&MPU6050);
@@ -98,19 +100,22 @@ int main() {
         PIDStruct(&pitch);
         PIDStruct(&yaw);
 
-        m1 = mmin - pitch.pulse + roll.pulse + yaw.pulse;   // Front right
-        m2 = mmin - pitch.pulse - roll.pulse - yaw.pulse;   // Front left
-        m3 = mmin + pitch.pulse + roll.pulse - yaw.pulse;   // Back right
-        m4 = mmin + pitch.pulse - roll.pulse + yaw.pulse;   // Back left
+        m1 = mmin - pitch.pulse + roll.pulse + yaw.pulse;   // Front right motor 
+        m2 = mmin - pitch.pulse - roll.pulse - yaw.pulse;   // Front left motor 
+        m3 = mmin + pitch.pulse + roll.pulse - yaw.pulse;   // Back right motor
+        m4 = mmin + pitch.pulse - roll.pulse + yaw.pulse;   // Back left motor
         
         if(m1 > mmax) { m1 = mmax; }
-        if(m1 < oneshot125) { m1 = oneshot125; }
+        if(m1 < mmin) { m1 = mmin; }
+        
         if(m2 > mmax) { m2 = mmax; }
-        if(m2 < oneshot125) { m2 = oneshot125; }
+        if(m2 < mmin) { m2 = mmin; }
+
         if(m3 > mmax) { m3 = mmax; }
-        if(m3 < oneshot125) { m3 = oneshot125; }
+        if(m3 < mmin) { m3 = mmin; }
+
         if(m4 > mmax) { m4 = mmax; }
-        if(m4 < oneshot125) { m4 = oneshot125; }    
+        if(m4 < mmin) { m4 = mmin; }
 
         pwm_set_chan_level(sliceM1,0,m1);
         pwm_set_chan_level(sliceM2,0,m2);
@@ -134,11 +139,8 @@ int main() {
         }
         ledCurr = time_us_32();
 
-        end = time_us_32();
-        loop_time = (float)(end-start)/1E6;
 
-        loop_speed = 1/loop_time;
-        printf("\n%f Hz",loop_speed);
+
 
 }
         
@@ -163,3 +165,11 @@ int main() {
 // led_on(18,ledState);
 
 //==========================================================================//
+
+
+// //measure Poll Rate
+// end = time_us_32();
+// loop_time = (float)(end-start)/1E6;
+
+// loop_speed = 1/loop_time;
+// //printf("\n%f Hz",loop_speed);

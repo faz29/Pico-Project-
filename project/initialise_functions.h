@@ -105,13 +105,7 @@ void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int r
 
 void pwm_initialisation(int pwm_pin,uint chan,int pulse_width);
 
-//void esc_calibration(int pwm_pin,uint chan,int ledPin, int arm_sleep);
-
 void led_on(int ledPin, bool state);
-
-//void read_controller(uart_inst_t* uart_port,int pwm_pin, int* t,int* b,uint16_t* throttle, uint16_t* brake);
-
-//void PID(double* E, double Kp, double Ki, double Kd,double* pulse1, double* pulse2, double* blm1, double* blm2);
 
 void read_controller_data_structure(uart_inst_t* uart_port, controller_vars *cdata);
 
