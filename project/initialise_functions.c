@@ -144,6 +144,11 @@ void PIDStruct(pid_vars *pid){
     pid->filterD = pid->filterD * (1.0 - pid->r) + pid->r * Derivative;
     
     pid->D = pid->Kd*pid->filterD;
+
+    if(fabs(pid->E) < 0.5) {
+        pid->P = 0;
+        pid->D = 0;
+      }
     
     pid->pulse = pid->P + pid->I + pid->D;
 

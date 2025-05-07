@@ -36,6 +36,11 @@ int main() {
     pwm_initialisation(M3_pin,0,125);
     pwm_initialisation(M4_pin,0,125);
 
+    // pwm_initialisation(M1_pin,0,250);
+    // pwm_initialisation(M2_pin,0,250);
+    // pwm_initialisation(M3_pin,0,250);
+    // pwm_initialisation(M4_pin,0,250);
+
     sleep_ms(2000);
 
     uint sliceM1 = pwm_gpio_to_slice_num(M1_pin);
@@ -51,7 +56,7 @@ int main() {
         
     sleep_ms(150);
  
-    int interval = 250000; 
+    int interval = 100000; 
 
     uint32_t ledCurr = time_us_32();
     uint32_t ledPrev = 0;
@@ -65,25 +70,28 @@ int main() {
 //     Kd = 0.25;
     
     int mmax = 200;
-    int mmin = 125;
+    int mmin = 130;
 
     roll.Kp = 0.0;
     roll.Kd = 0.0;
     roll.Ki = 0.0;
 
-    pitch.Kp = 0.0;
-    pitch.Kd = 0.0;
+    pitch.Kp = 0.12;
+    pitch.Kd = 0.3;
     pitch.Ki = 0.0;
+
+    roll.r = pitch.r = yaw.r = 0.01;
 
     yaw.Kp = 0.0;
     yaw.Kd = 0.0;   
     yaw.Ki = 0.0;
 
-    roll.r = pitch.r = yaw.r = 0.001;
-
     float loop_speed, loop_time;
     uint32_t start = 0;
     uint32_t end = 0;
+
+    float phi, gcomp, Kg;
+    Kg = 53;
 
     while (true) {
         
@@ -99,11 +107,24 @@ int main() {
         PIDStruct(&roll);
         PIDStruct(&pitch);
         PIDStruct(&yaw);
+        
+        phi = pitch.pv * (3.14/180.0f);      // convert to radians
+        gcomp = Kg * sinf(phi); //gravity compensation term
 
         m1 = mmin - pitch.pulse + roll.pulse + yaw.pulse;   // Front right motor 
         m2 = mmin - pitch.pulse - roll.pulse - yaw.pulse;   // Front left motor 
         m3 = mmin + pitch.pulse + roll.pulse - yaw.pulse;   // Back right motor
         m4 = mmin + pitch.pulse - roll.pulse + yaw.pulse;   // Back left motor
+
+        m1 = mmin - pitch.pulse + roll.pulse + yaw.pulse + gcomp;
+        m2 = mmin - pitch.pulse - roll.pulse - yaw.pulse + gcomp;
+        m3 = mmin + pitch.pulse + roll.pulse - yaw.pulse - gcomp;
+        m4 = mmin + pitch.pulse - roll.pulse + yaw.pulse - gcomp;
+
+        m1 = mmin + gcomp;
+        m2 = mmin + gcomp;
+        m3 = mmin - gcomp;
+        m4 = mmin - gcomp;
         
         if(m1 > mmax) { m1 = mmax; }
         if(m1 < mmin) { m1 = mmin; }
@@ -117,6 +138,8 @@ int main() {
         if(m4 > mmax) { m4 = mmax; }
         if(m4 < mmin) { m4 = mmin; }
 
+
+//comment this out if using manual speeds
         pwm_set_chan_level(sliceM1,0,m1);
         pwm_set_chan_level(sliceM2,0,m2);
         pwm_set_chan_level(sliceM3,0,m3);
@@ -138,9 +161,6 @@ int main() {
 
         }
         ledCurr = time_us_32();
-
-
-
 
 }
         
@@ -173,3 +193,10 @@ int main() {
 
 // loop_speed = 1/loop_time;
 // //printf("\n%f Hz",loop_speed);
+
+
+//==========================================================================//
+
+        // printf("Pitch Pv: %f\n",pitch.pv);
+        // printf("\nenter Kg Value");
+        // scanf("%f",&Kg);/
