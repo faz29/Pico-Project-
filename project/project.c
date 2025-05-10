@@ -12,10 +12,15 @@
 #include "pico_sensor_lib.h"
 #include "initialise_functions.h"
 
+i2c_inst_t icm20948_i2c = {i2c0_hw, false};
+icm20948_config_t config = {0x68, 0x0C, &icm20948_i2c};
+icm20984_data_t data;
+madgwick_ahrs_t filter = {0.005f, {1.0f, 0.0f, 0.0f, 0.0f}};
+
 
 int main() {
     int pwm;
-    float AngX, AngY;
+    float AngX, AngY;   
     MPU6050_t MPU6050;
 
     //initialise all structures to 0
@@ -36,11 +41,6 @@ int main() {
     pwm_initialisation(M3_pin,0,125);
     pwm_initialisation(M4_pin,0,125);
 
-    // pwm_initialisation(M1_pin,0,250);
-    // pwm_initialisation(M2_pin,0,250);
-    // pwm_initialisation(M3_pin,0,250);
-    // pwm_initialisation(M4_pin,0,250);
-
     sleep_ms(2000);
 
     uint sliceM1 = pwm_gpio_to_slice_num(M1_pin);
@@ -50,13 +50,20 @@ int main() {
 
     printf("Hello, world! \n");
 
-    MPU6050_Init(I2C_PORT);
+    if (icm20948_init(&config) == 0) printf("successfully initialized!\n");
 
-    printf("MPU6050 initialised !\n");
-        
-    sleep_ms(150);
- 
-    int interval = 100000; 
+    //icm20948_cal_gyro(&config, &data.gyro_bias[0]);
+    //icm20948_cal_accel(&config, &data.accel_bias[0]);
+    
+    data.mag_bias[0] = -102; data.mag_bias[1] = 38; data.mag_bias[2] = 146;
+    //icm20948_cal_mag(&config, &data.mag_bias[0]);
+
+    printf("calibrated accel: %d %d %d\n", data.accel_bias[0], data.accel_bias[1], data.accel_bias[2]);
+    printf("calibrated gyro: %d %d %d\n", data.gyro_bias[0], data.gyro_bias[1], data.gyro_bias[2]);
+    printf("calibrated mag: %d %d %d\n", data.mag_bias[0], data.mag_bias[1], data.mag_bias[2]);
+
+    sleep_ms(500);
+    int interval = 250000; 
 
     uint32_t ledCurr = time_us_32();
     uint32_t ledPrev = 0;
@@ -65,67 +72,77 @@ int main() {
     double m1, m2, m3, m4;
     m1 = m2 = m3 = m4 = 0;
 
-//     Kp = 0.11;
-//     Ki = 0.64;
-//     Kd = 0.25;
-    
     int mmax = 200;
-    int mmin = 130;
+    int mmin = 125;
 
-    roll.Kp = 0.0;
-    roll.Kd = 0.0;
-    roll.Ki = 0.0;
+    roll.Kp = 1.1;
+    roll.Kd = 0.8;
+    roll.Ki = 0;
 
-    pitch.Kp = 0.12;
-    pitch.Kd = 0.3;
-    pitch.Ki = 0.0;
+//     roll.Kp = 0;  
+//     roll.Kd = 0;
+//     roll.Ki = 0;
 
-    roll.r = pitch.r = yaw.r = 0.01;
+//     pitch.Kp = 1.068;
+//     pitch.Kd = 0.006192;
+//     pitch.Ki = 1.919;
 
-    yaw.Kp = 0.0;
-    yaw.Kd = 0.0;   
-    yaw.Ki = 0.0;
+    pitch.Kp = 0;
+    pitch.Kd = 0;
+    pitch.Ki = 0;
+
+    // yaw.Kp = 0.7447;
+    // yaw.Kd = 0.004319;   
+    // yaw.Ki = 1.339;
+
+    yaw.Kp = 0;
+    yaw.Kd = 0;   
+    yaw.Ki = 0;
+
+    roll.r = pitch.r = 0.1;
+
+    yaw.r = 0.001;
 
     float loop_speed, loop_time;
-    uint32_t start = 0;
+    uint32_t poll_start = 0;
     uint32_t end = 0;
+    
+    float time_now = 0;
+    float time_former = 0;
+    float deltat = 0;
 
-    float phi, gcomp, Kg;
-    Kg = 53;
 
     while (true) {
         
         //loop poll timer
-        start = time_us_32();
+        //poll_start = time_us_32();
 
-        MPU6050_Read_All(I2C_PORT,&MPU6050);
+        icm20948_Read_All(&MPU6050,&config,&data);
+    
+        time_now = time_us_32();
+        deltat = (float)(time_now - time_former) / 1000000.0f;
+        time_former = time_now;
 
-        roll.pv = MPU6050.KalmanAngleX;
-        pitch.pv = MPU6050.KalmanAngleY; 
-        yaw.pv = MPU6050.Gz;
+        MadgwickQuaternionUpdate(MPU6050.Ax * 9.8, MPU6050.Ay * 9.8, MPU6050.Az * 9.8,
+                                MPU6050.Gx, MPU6050.Gy, MPU6050.Gz,
+                                MPU6050.Mz, MPU6050.Mz, MPU6050.Mz, 
+                                deltat, &filter);         
+        
+        ToEulerAngles(&filter, &MPU6050);
+
+        roll.pv = MPU6050.KLMroll;
+        pitch.pv = MPU6050.KLMpitch;        
+        yaw.pv = MPU6050.yaw;
 
         PIDStruct(&roll);
         PIDStruct(&pitch);
         PIDStruct(&yaw);
-        
-        phi = pitch.pv * (3.14/180.0f);      // convert to radians
-        gcomp = Kg * sinf(phi); //gravity compensation term
 
-        m1 = mmin - pitch.pulse + roll.pulse + yaw.pulse;   // Front right motor 
-        m2 = mmin - pitch.pulse - roll.pulse - yaw.pulse;   // Front left motor 
-        m3 = mmin + pitch.pulse + roll.pulse - yaw.pulse;   // Back right motor
-        m4 = mmin + pitch.pulse - roll.pulse + yaw.pulse;   // Back left motor
+        m1 = mmin - pitch.pulse - roll.pulse - yaw.pulse;   // Front left motor 
+        m3 = mmin - pitch.pulse + roll.pulse + yaw.pulse;   // Front right motor 
+        m2 = mmin + pitch.pulse - roll.pulse + yaw.pulse;   // Back left motor
+        m4 = mmin + pitch.pulse + roll.pulse - yaw.pulse;   // Back right motor
 
-        m1 = mmin - pitch.pulse + roll.pulse + yaw.pulse + gcomp;
-        m2 = mmin - pitch.pulse - roll.pulse - yaw.pulse + gcomp;
-        m3 = mmin + pitch.pulse + roll.pulse - yaw.pulse - gcomp;
-        m4 = mmin + pitch.pulse - roll.pulse + yaw.pulse - gcomp;
-
-        m1 = mmin + gcomp;
-        m2 = mmin + gcomp;
-        m3 = mmin - gcomp;
-        m4 = mmin - gcomp;
-        
         if(m1 > mmax) { m1 = mmax; }
         if(m1 < mmin) { m1 = mmin; }
         
@@ -138,8 +155,6 @@ int main() {
         if(m4 > mmax) { m4 = mmax; }
         if(m4 < mmin) { m4 = mmin; }
 
-
-//comment this out if using manual speeds
         pwm_set_chan_level(sliceM1,0,m1);
         pwm_set_chan_level(sliceM2,0,m2);
         pwm_set_chan_level(sliceM3,0,m3);
@@ -149,18 +164,54 @@ int main() {
                 ledPrev = ledCurr;
                 ledState = !ledState;
                 led_on(18,ledState);
+            
+                // printf("\nAccel: X=%+2.5f Y=%+2.5f Z=%+2.5f| ", MPU6050.Ax,MPU6050.Ay,MPU6050.Az);
+                // printf("\nGyro: X=%+2.5f Y=%+2.5f Z=%+2.5f | ", MPU6050.Gx,MPU6050.Gy,MPU6050.Gz);
 
                 printf("\n-----------------------------------------------\n");
-                printf("Roll sp: %f Roll: %f    Pitch sp: %f Pitch: %f       ",roll.sp, roll.pv, pitch.sp, pitch.pv);
-                printf("Yaw sp: %f Yaw Rate: %f\n", yaw.sp, yaw.pv);
-                printf("\n              Roll:\nP: %f         D: %f          I: %f\n",roll.P,roll.D,roll.I);
-                printf("\n              Pitch:\nP: %f        D: %f          I: %f\n",pitch.P,pitch.D,pitch.I);
-                printf("\n              Yaw:\nP: %f          D: %f          I: %f\n", yaw.P, yaw.D, yaw.I);
-                printf("\nM1 (front right): %f       M2 (front left): %f       \n\nM3 (backright): %f       M4 (backleft): %f",m1,m2,m3,m4);
+                printf("Roll Pitch and Yaw \n");
+                printf("Roll sp: %f Roll: %f    Pitch sp: %f Pitch: %f       ",roll.sp, MPU6050.KLMroll, pitch.sp, MPU6050.KLMpitch);
+                // printf("Yaw sp: %f Yaw: %f\n", yaw.sp, MPU6050.yaw* 180.0 / PI);
+                // printf("\nquaternions are %f, %f, %f, %f\n", filter.q[0],filter.q[1],filter.q[2],filter.q[3]);
+                // printf("\n-----------------------------------------------\n");
+
+                printf("\n      Roll:   P: %f           D: %f          I: %f",roll.P,roll.D,roll.I);
+                // printf("\n      Pitch:  P: %f           D: %f          I: %f",pitch.P,pitch.D,pitch.I);
+                // printf("\n      Yaw:    P: %f           D: %f          I: %f", yaw.P, yaw.D, yaw.I);
+                printf("\nM1 (front left): %f       M2 (back left): %f       \nM3 (front right): %f       M4 (back right): %f",m1,m2,m3,m4);
                 printf("\n-----------------------------------------------\n");
 
         }
         ledCurr = time_us_32();
+
+
+// printf("\nM1: enter pulse width between 125 and 250 us");
+// scanf("%d",&pwm);
+
+// pwm_set_chan_level(sliceM1,0,pwm);
+
+// printf("\nM2: enter pulse width between 125 and 250 us");
+// scanf("%d",&pwm);
+
+// pwm_set_chan_level(sliceM2,0,pwm);
+
+// printf("\nM3: enter pulse width between 125 and 250 us");
+// scanf("%d",&pwm);
+
+
+// pwm_set_chan_level(sliceM3,0,pwm);
+
+// printf("\nM4: enter pulse width between 125 and 250 us");
+// scanf("%d",&pwm);
+// pwm_set_chan_level(sliceM4,0,pwm);
+
+// printf("motor identification complete !\n");
+
+// ledState = !ledState;
+
+// led_on(18,ledState);
+
+
 
 }
         
@@ -193,10 +244,3 @@ int main() {
 
 // loop_speed = 1/loop_time;
 // //printf("\n%f Hz",loop_speed);
-
-
-//==========================================================================//
-
-        // printf("Pitch Pv: %f\n",pitch.pv);
-        // printf("\nenter Kg Value");
-        // scanf("%f",&Kg);/

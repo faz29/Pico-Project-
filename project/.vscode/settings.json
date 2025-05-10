@@ -39,6 +39,12 @@
     "files.associations": {
         "pwm.h": "c",
         "timer.h": "c",
-        "initialise_functions.h": "c"
+        "initialise_functions.h": "c",
+        "compare": "c",
+        "cstdint": "c",
+        "cmath": "c",
+        "pico_sensor_lib.h": "c",
+        "gpio.h": "c",
+        "uart.h": "c"
     }
 }

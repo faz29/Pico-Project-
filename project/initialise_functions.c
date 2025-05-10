@@ -14,6 +14,9 @@ const uint16_t i2c_timeout = 100;
 const double Accel_Z_corrector = 14418.0;
 uint32_t timer;
 
+
+
+
 Kalman_t KalmanX = {
     .Q_angle = 0.001f,
     .Q_bias = 0.003f,
@@ -144,11 +147,6 @@ void PIDStruct(pid_vars *pid){
     pid->filterD = pid->filterD * (1.0 - pid->r) + pid->r * Derivative;
     
     pid->D = pid->Kd*pid->filterD;
-
-    if(fabs(pid->E) < 0.5) {
-        pid->P = 0;
-        pid->D = 0;
-      }
     
     pid->pulse = pid->P + pid->I + pid->D;
 
@@ -157,141 +155,149 @@ void PIDStruct(pid_vars *pid){
 
 }
 
-uint8_t MPU6050_Init(i2c_inst_t *i2cPort) {
-    uint8_t check;
-    uint8_t Data[2];
-    uint8_t who = WHO_AM_I_REG;
 
-    // check device ID WHO_AM_I
+//ICM20948 Functions
+
+int icm20948_init(icm20948_config_t *config) {
+    uint8_t reg[2], buf;
+
+    // wake up accel/gyro!
+    // first write register then, write value
+    reg[0] = PWR_MGMT_1; reg[1] = 0x00;
     
-    i2c_write_blocking(i2cPort,MPU6050_ADDR,&who,1,true);
-    i2c_read_blocking(i2cPort,MPU6050_ADDR,&check,1,false);
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, reg, 2, false);
 
-    if (check == 104)  // 0x68 will be returned by the sensor if everything goes well
-    {
-        // power management register 0X6B we should write all 0's to wake the sensor up
-        Data[0] = PWR_MGMT_1_REG;
-        Data[1] = 0;
+    // switch to user bank to 0
+    reg[0] = REG_BANK_SEL; reg[1] = 0x00;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, reg, 2, false);
 
-        i2c_write_blocking(i2cPort,MPU6050_ADDR,Data,2,false);
+    // auto select clock source
+    reg[0] = PWR_MGMT_1; reg[1] = 0x01;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, reg, 2, false);
 
-        // Set DATA RATE of 1KHz by writing SMPLRT_DIV register
-        Data[0] = SMPLRT_DIV_REG;
-        Data[1] = 0x07;
-
-        i2c_write_blocking(i2cPort,MPU6050_ADDR,Data,2,false);
-
-        // Set accelerometer configuration in ACCEL_CONFIG Register
-        // XA_ST=0,YA_ST=0,ZA_ST=0, FS_SEL=0 ->   2g
-        Data[0] = ACCEL_CONFIG_REG;
-        Data[1] = 0x00;    
-
-        i2c_write_blocking(i2cPort,MPU6050_ADDR,Data,2,false);
-        // Set Gyroscopic configuration in GYRO_CONFIG Register
-        // XG_ST=0,YG_ST=0,ZG_ST=0, FS_SEL=0 ->   250  /s
-        Data[0] = GYRO_CONFIG_REG;
-        Data[1] = 0x00;
-        i2c_write_blocking(i2cPort,MPU6050_ADDR,Data,2,false);
-
-        printf("MPU6050 Initialised !");
-        return 0;
-    }
-    return 1;
-}
-
-void MPU6050_Read_Accel(i2c_inst_t *i2cPort, MPU6050_t *DataStruct){
-
-    uint8_t Rec_Data[6];
+    // disable accel/gyro once
+    reg[0] = PWR_MGMT_2; reg[1] = 0x3F;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, reg, 2, false);
+    sleep_ms(10);
     
-    uint8_t addr[1] = {ACCEL_XOUT_H_REG};
-    // Read 6 BYTES of data starting from ACCEL_XOUT_H register
+    // enable accel/gyro (again)
+    reg[0] = PWR_MGMT_2; reg[1] = 0x00;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, reg, 2, false);
 
-    i2c_write_blocking(i2cPort,MPU6050_ADDR,addr,1,true);
-    i2c_read_blocking(i2cPort,MPU6050_ADDR,Rec_Data,6,false);
+    // check if the accel/gyro could be accessed
+    reg[0] = WHO_AM_I_ICM20948;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, reg, 1, true);
+    i2c_read_blocking(config->i2c, config->addr_accel_gyro, &buf, 1, false);
+#ifndef NDEBUG    
+    printf("AG. WHO_AM_I: 0x%X\n", buf);
+#endif
+    if (buf != 0xEA) return -1;
 
-    DataStruct->Accel_X_RAW = (int16_t) (Rec_Data[0] << 8 | Rec_Data[1]);
-    DataStruct->Accel_Y_RAW = (int16_t) (Rec_Data[2] << 8 | Rec_Data[3]);
-    DataStruct->Accel_Z_RAW = (int16_t) (Rec_Data[4] << 8 | Rec_Data[5]);
+    // switch to user bank 2
+    reg[0] = REG_BANK_SEL; reg[1] = 0x20;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, reg, 2, false);
 
-    /*** convert the RAW values into acceleration in 'g'
-         we have to divide according to the Full scale value set in FS_SEL
-         I have configured FS_SEL = 0. So I am dividing by 16384.0
-         for more details check ACCEL_CONFIG Register              ****/
+    // gyro config
+    //
+    // set full scale to +-
+    // set noise bandwidth to 
+    // smaller bandwidth means lower noise level & slower max sample rate
+    reg[0] = GYRO_CONFIG_1; reg[1] = 0x29;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, reg, 2, false);
+    //
+    // set gyro output data rate to 100Hz
+    // output_data_rate = 1.125kHz / (1 + GYRO_SMPLRT_DIV)
+    // 1125 / 11 = 100
+    reg[0] = GYRO_SMPLRT_DIV; reg[1] = 0x0A;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, reg, 2, false);
 
-    DataStruct->Ax = DataStruct->Accel_X_RAW / 16384.0;
-    DataStruct->Ay = DataStruct->Accel_Y_RAW / 16384.0;
-    DataStruct->Az = DataStruct->Accel_Z_RAW / Accel_Z_corrector;
-}
-
-void MPU6050_Read_Gyro(i2c_inst_t *i2cPort, MPU6050_t *DataStruct){
-
-    uint8_t Rec_Data[6];
-    uint8_t addr[1] = {GYRO_XOUT_H_REG};
-
-    // Read 6 BYTES of data starting from GYRO_XOUT_H register
+    // accel config
+    //
+    // set full scale to +-2g
+    // set noise bandwidth to 136Hz
+    reg[0] = ACCEL_CONFIG; reg[1] = 0x11;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, reg, 2, false);
+    //
+    // set accel output data rate to 100Hz
+    // output_data_rate = 1.125kHz / (1 + ACCEL_SMPLRT_DIV)
+    // 16 bits for ACCEL_SMPLRT_DIV
+    reg[0] = ACCEL_SMPLRT_DIV_2; reg[1] = 0x0A;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, reg, 2, false);
     
-    i2c_write_blocking(i2cPort,MPU6050_ADDR,addr,1,true);
-    i2c_read_blocking(i2cPort,MPU6050_ADDR,Rec_Data,6,false);
+    // switch to user bank to 0
+    reg[0] = REG_BANK_SEL; reg[1] = 0x00;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, reg, 2, false);
+    
+    // wake up mag! (INT_PIN_CFG, BYPASS_EN = 1)
+    reg[0] = INT_PIN_CFG; reg[1] = 0x02;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, reg, 2, false);
 
-    DataStruct->Gyro_X_RAW = (int16_t) (Rec_Data[0] << 8 | Rec_Data[1]);
-    DataStruct->Gyro_Y_RAW = (int16_t) (Rec_Data[2] << 8 | Rec_Data[3]);
-    DataStruct->Gyro_Z_RAW = (int16_t) (Rec_Data[4] << 8 | Rec_Data[5]);
+    // check if the mag could be accessed
+    reg[0] = 0x01;
+    i2c_write_blocking(config->i2c, config->addr_mag, reg, 1, true);
+    i2c_read_blocking(config->i2c, config->addr_mag, &buf, 1, false);
+#ifndef NDEBUG
+    printf("MAG. WHO_AM_I: 0x%X\n", buf);
+#endif
+    if (buf != 0x09) return -1;
 
-    /*** convert the RAW values into dps ( /s)
-         we have to divide according to the Full scale value set in FS_SEL
-         I have configured FS_SEL = 0. So I am dividing by 131.0
-         for more details check GYRO_CONFIG Register              ****/
+    // config mag
+    //
+    // set mag mode, to measure continuously in 100Hz
+    reg[0] = AK09916_CNTL2; reg[1] = 0x08;
+    i2c_write_blocking(config->i2c, config->addr_mag, reg, 2, false);
 
-    DataStruct->Gx = DataStruct->Gyro_X_RAW / 131.0;
-    DataStruct->Gy = DataStruct->Gyro_Y_RAW / 131.0;
-    DataStruct->Gz = DataStruct->Gyro_Z_RAW / 131.0;
-
-
+    return 0;
 }
 
-void MPU6050_Read_Temp(i2c_inst_t *i2cPort, MPU6050_t *DataStruct){
+void icm20948_Read_All(MPU6050_t *DataStruct, icm20948_config_t *config, icm20984_data_t *data){
+    uint8_t buf[6];
+    int16_t accel[3], gyro[3], mag[3];
 
-    uint8_t Rec_Data[2];
-    int16_t temp;
-    uint8_t addr[1] = {TEMP_OUT_H_REG};
+    // accel: 2 bytes each axis
+    uint8_t reg = ACCEL_XOUT_H; 
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, &reg, 1, true);
+    i2c_read_blocking(config->i2c, config->addr_accel_gyro, buf, 6, false);
 
-    // Read 2 BYTES of data starting from TEMP_OUT_H_REG register
+    for (uint8_t i = 0; i < 3; i++) accel[i] = (buf[i * 2] << 8 | buf[(i * 2) + 1]);
+    for (uint8_t i = 0; i < 3; i++) accel[i] -= data->accel_bias[i];
 
-    i2c_write_blocking(i2cPort,MPU6050_ADDR,addr,1,true);
-    i2c_read_blocking(i2cPort,MPU6050_ADDR,Rec_Data,2,false);
+    // gyro: 2byte each axis
+    reg = GYRO_XOUT_H;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, &reg, 1, true);
+    i2c_read_blocking(config->i2c, config->addr_accel_gyro, buf, 6, false);
 
-    temp = (int16_t) (Rec_Data[0] << 8 | Rec_Data[1]);
-    DataStruct->Temperature = (float) ((int16_t) temp / (float) 340.0 + (float) 36.53);
+    for (uint8_t i = 0; i < 3; i++) gyro[i] = (buf[i * 2] << 8 | buf[(i * 2) + 1]);
+    for (uint8_t i = 0; i < 3; i++) gyro[i] -= data->gyro_bias[i];
 
-}
+    reg = AK09916_XOUT_L;
+    i2c_write_blocking(config->i2c, config->addr_mag, &reg, 1,true);
+    i2c_read_blocking(config->i2c, config->addr_mag, buf, 8, false);
 
-void MPU6050_Read_All(i2c_inst_t *i2cPort, MPU6050_t *DataStruct){
+    for (int i = 0; i < 3; i++) mag[i] = (buf[(i * 2) + 1] << 8 | buf[(i * 2)]);
+    for (uint8_t i = 0; i < 3; i++) mag[i] -= data->mag_bias[i];
 
-    uint8_t Rec_Data[14];
-    int16_t temp;
-    uint8_t addr[1] = {ACCEL_XOUT_H_REG};
+    DataStruct->Accel_X_RAW = (int16_t)(accel[0]);
+    DataStruct->Accel_Y_RAW = (int16_t)(accel[1]);
+    DataStruct->Accel_Z_RAW = (int16_t)(accel[2]);
+    DataStruct->Gyro_X_RAW = (int16_t)(gyro[0]);
+    DataStruct->Gyro_Y_RAW = (int16_t)(gyro[1]);
+    DataStruct->Gyro_Z_RAW = (int16_t)(gyro[2]);
+    DataStruct->Mag_X_RAW = (int16_t)(mag[0]);
+    DataStruct->Mag_Y_RAW = (int16_t)(mag[1]);
+    DataStruct->Mag_Z_RAW = (int16_t)(mag[2]);
 
-    // Read 14 BYTES of data starting from ACCEL_XOUT_H register
-    // HAL_I2C_Mem_Read(I2Cx, MPU6050_ADDR, ACCEL_XOUT_H_REG, 1, Rec_Data, 14, i2c_timeout);
 
-    i2c_write_blocking(i2cPort,MPU6050_ADDR,addr,1,true);
-    i2c_read_blocking(i2cPort,MPU6050_ADDR,Rec_Data,14,false);
+    DataStruct->Ax = DataStruct->Accel_X_RAW / 16384.0f;
+    DataStruct->Ay = DataStruct->Accel_Y_RAW / 16384.0f;
+    DataStruct->Az = DataStruct->Accel_Z_RAW / 16384.0f;
+    DataStruct->Gx = DataStruct->Gyro_X_RAW / 131.0f;
+    DataStruct->Gy = DataStruct->Gyro_Y_RAW / 131.0f;
+    DataStruct->Gz = DataStruct->Gyro_Z_RAW / 131.0f;
 
-    DataStruct->Accel_X_RAW = (int16_t) (Rec_Data[0] << 8 | Rec_Data[1]);
-    DataStruct->Accel_Y_RAW = (int16_t) (Rec_Data[2] << 8 | Rec_Data[3]);
-    DataStruct->Accel_Z_RAW = (int16_t) (Rec_Data[4] << 8 | Rec_Data[5]);
-    temp = (int16_t) (Rec_Data[6] << 8 | Rec_Data[7]);
-    DataStruct->Gyro_X_RAW = (int16_t) (Rec_Data[8] << 8 | Rec_Data[9]);
-    DataStruct->Gyro_Y_RAW = (int16_t) (Rec_Data[10] << 8 | Rec_Data[11]);
-    DataStruct->Gyro_Z_RAW = (int16_t) (Rec_Data[12] << 8 | Rec_Data[13]);
-
-    DataStruct->Ax = DataStruct->Accel_X_RAW / 16384.0;
-    DataStruct->Ay = DataStruct->Accel_Y_RAW / 16384.0;
-    DataStruct->Az = DataStruct->Accel_Z_RAW / Accel_Z_corrector;
-    DataStruct->Temperature = (float) ((int16_t) temp / (float) 340.0 + (float) 36.53);
-    DataStruct->Gx = DataStruct->Gyro_X_RAW / 131.0;
-    DataStruct->Gy = DataStruct->Gyro_Y_RAW / 131.0;
-    DataStruct->Gz = DataStruct->Gyro_Z_RAW / 131.0;
+    DataStruct->Mx = DataStruct->Mag_X_RAW * 0.15f;
+    DataStruct->My = DataStruct->Mag_Y_RAW * 0.15f;
+    DataStruct->Mz = DataStruct->Mag_Z_RAW * 0.15f;
 
     double dt = (double) (time_us_32()-timer)/1E6;
     timer = time_us_32();
@@ -304,17 +310,114 @@ void MPU6050_Read_All(i2c_inst_t *i2cPort, MPU6050_t *DataStruct){
         roll = 0.0;
     }
     double pitch = atan2(-DataStruct->Accel_X_RAW, DataStruct->Accel_Z_RAW) * RAD_TO_DEG;
-    if ((pitch < -90 && DataStruct->KalmanAngleY > 90) || (pitch > 90 && DataStruct->KalmanAngleY < -90)) {
+    if ((pitch < -90 && DataStruct->pitch > 90) || (pitch > 90 && DataStruct->pitch < -90)) {
         KalmanY.angle = pitch;
-        DataStruct->KalmanAngleY = pitch;
+        DataStruct->KLMpitch = pitch;
     } else {
-        DataStruct->KalmanAngleY = Kalman_getAngle(&KalmanY, pitch, DataStruct->Gy, dt);
+        DataStruct->KLMpitch = Kalman_getAngle(&KalmanY, pitch, DataStruct->Gy, dt);
     }
-    if (fabs(DataStruct->KalmanAngleY) > 90)
+    if (fabs(DataStruct->pitch) > 90)
         DataStruct->Gx = -DataStruct->Gx;
-    DataStruct->KalmanAngleX = Kalman_getAngle(&KalmanX, roll, DataStruct->Gy, dt);
+    DataStruct->KLMroll = Kalman_getAngle(&KalmanX, roll, DataStruct->Gy, dt);
+}
+
+//calibration functions
+
+void icm20948_cal_gyro(icm20948_config_t *config, int16_t gyro_bias[3]) {
+    int16_t buf[3] = {0};
+    int32_t bias[3] = {0};
+
+    for (uint8_t i = 0; i < 100; i++) {
+        icm20948_read_raw_gyro(config, buf);
+        for (uint8_t j = 0; j < 3; j++) {
+            bias[j] += buf[j];
+        }
+        sleep_ms(25);
+    }
+    for (uint8_t i = 0; i < 3; i++) gyro_bias[i] = (int16_t)(bias[i] / 200);
+    
+    return;
+}
+
+void icm20948_cal_accel(icm20948_config_t *config, int16_t accel_bias[3]) {
+    int16_t buf[3] = {0};
+    int32_t bias[3] = {0};
+
+    for (uint8_t i = 0; i < 100; i++) {
+        icm20948_read_raw_accel(config, buf);
+        for (uint8_t j = 0; j < 3; j++) {
+            if (j == 2) bias[j] += (buf[j] - 16384);
+            else bias[j] += buf[j];
+        }
+        sleep_ms(25);
+    }
+    for (uint8_t i = 0; i < 3; i++) accel_bias[i] = (int16_t)(bias[i] / 200);
+    return;
+}
+
+void icm20948_cal_mag_simple(icm20948_config_t *config, int16_t mag_bias[3]) {
+    int16_t buf[3] = {0}, max[3] = {0}, min[3] = {0};
+#ifndef NDEBUG
+    printf("mag calibration: \nswing sensor for 360 deg\n");
+#endif
+    for (uint8_t i = 0; i < 1000; i++) {
+        icm20948_read_raw_mag(config, buf);
+        for (uint8_t j = 0; j < 3; j++) {
+            if (buf[j] > max[j]) max[j] = buf[j];
+            if (buf[j] < min[j]) min[j] = buf[j];
+        }
+        sleep_ms(10);
+    }
+    for (uint8_t i = 0; i < 3; i++) mag_bias[i] = (max[i] + min[i]) / 2;
+    return;
+}
 
 
+//reading raw data
+
+void icm20948_read_raw_accel(icm20948_config_t *config, int16_t accel[3]) {
+    uint8_t buf[6];
+
+    // accel: 2 bytes each axis
+    uint8_t reg = ACCEL_XOUT_H;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, &reg, 1, true);
+    i2c_read_blocking(config->i2c, config->addr_accel_gyro, buf, 6, false);
+
+    for (uint8_t i = 0; i < 3; i++) accel[i] = (buf[i * 2] << 8 | buf[(i * 2) + 1]);
+
+    return;
+}
+
+void icm20948_read_raw_gyro(icm20948_config_t *config, int16_t gyro[3]) {
+    uint8_t buf[6];
+
+    // gyro: 2byte each axis
+    uint8_t reg = GYRO_XOUT_H;
+    i2c_write_blocking(config->i2c, config->addr_accel_gyro, &reg, 1, true);
+    i2c_read_blocking(config->i2c, config->addr_accel_gyro, buf, 6, false);
+
+    for (uint8_t i = 0; i < 3; i++) gyro[i] = (buf[i * 2] << 8 | buf[(i * 2) + 1]);
+    return;
+}
+
+void icm20948_read_raw_mag(icm20948_config_t *config, int16_t mag[3]) {
+    uint8_t buf[8];
+
+    uint8_t reg = AK09916_XOUT_L;
+    i2c_write_blocking(config->i2c, config->addr_mag, &reg, 1,true);
+    i2c_read_blocking(config->i2c, config->addr_mag, buf, 8, false);
+
+    for (int i = 0; i < 3; i++) mag[i] = (buf[(i * 2) + 1] << 8 | buf[(i * 2)]);
+
+#ifndef NDEBUG
+    if ((buf[6] & 0x08) == 0x08) printf("mag: ST1: Sensor overflow\n");
+
+    // printf below works only if we read 0x10
+    //if ((buf[0] & 0x01) == 0x01) printf("mag: ST1: Data overrun\n");
+    //if ((buf[0] & 0x02) != 0x02) printf("mag: ST1: Data is NOT ready\n");
+#endif
+
+    return;
 }
 
 double Kalman_getAngle(Kalman_t *Kalman, double newAngle, double newRate, double dt){
@@ -346,6 +449,133 @@ double Kalman_getAngle(Kalman_t *Kalman, double newAngle, double newRate, double
     Kalman->P[1][1] -= K[1] * P01_temp;
 
     return Kalman->angle;
+
+}
+
+
+//================================================================================================//    
+//madgwick stuff
+
+void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float deltat, madgwick_ahrs_t *quat)
+{
+    float q1 = quat->q[0], q2 = quat->q[1], q3 = quat->q[2], q4 = quat->q[3];   // short name local variable for readability
+    float norm;
+    float hx, hy, _2bx, _2bz;
+    float s1, s2, s3, s4;
+    float qDot1, qDot2, qDot3, qDot4;
+
+
+    // Convert gyroscope degrees/sec to radians/sec
+	gx *= 0.0174533f;
+	gy *= 0.0174533f;
+	gz *= 0.0174533f;
+
+    // Auxiliary variables to avoid repeated arithmetic
+    float _2q1mx;
+    float _2q1my;
+    float _2q1mz;
+    float _2q2mx;
+    float _4bx;
+    float _4bz;
+    float _2q1 = 2.0f * q1;
+    float _2q2 = 2.0f * q2;
+    float _2q3 = 2.0f * q3;
+    float _2q4 = 2.0f * q4;
+    float _2q1q3 = 2.0f * q1 * q3;
+    float _2q3q4 = 2.0f * q3 * q4;
+    float q1q1 = q1 * q1;
+    float q1q2 = q1 * q2;
+    float q1q3 = q1 * q3;
+    float q1q4 = q1 * q4;
+    float q2q2 = q2 * q2;
+    float q2q3 = q2 * q3;
+    float q2q4 = q2 * q4;
+    float q3q3 = q3 * q3;
+    float q3q4 = q3 * q4;
+    float q4q4 = q4 * q4;
+
+    // Normalise accelerometer measurement
+    norm = 1.0f / sqrtf(ax * ax + ay * ay + az * az);
+    ax *= norm;
+    ay *= norm;
+    az *= norm;
+
+    // Normalise magnetometer measurement
+    norm = 1.0f / sqrtf(mx * mx + my * my + mz * mz);
+    mx *= norm;
+    my *= norm;
+    mz *= norm;
+
+    // Reference direction of Earth's magnetic field
+    _2q1mx = 2.0f * q1 * mx;
+    _2q1my = 2.0f * q1 * my;
+    _2q1mz = 2.0f * q1 * mz;
+    _2q2mx = 2.0f * q2 * mx;
+    hx = mx * q1q1 - _2q1my * q4 + _2q1mz * q3 + mx * q2q2 + _2q2 * my * q3 + _2q2 * mz * q4 - mx * q3q3 - mx * q4q4;
+    hy = _2q1mx * q4 + my * q1q1 - _2q1mz * q2 + _2q2mx * q3 - my * q2q2 + my * q3q3 + _2q3 * mz * q4 - my * q4q4;
+    _2bx = sqrtf(hx * hx + hy * hy);
+    _2bz = -_2q1mx * q3 + _2q1my * q2 + mz * q1q1 + _2q2mx * q4 - mz * q2q2 + _2q3 * my * q4 - mz * q3q3 + mz * q4q4;
+    _4bx = 2.0f * _2bx;
+    _4bz = 2.0f * _2bz;
+
+    // Gradient decent algorithm corrective step
+    s1 = -_2q3 * (2.0f * q2q4 - _2q1q3 - ax) + _2q2 * (2.0f * q1q2 + _2q3q4 - ay) - _2bz * q3 * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (-_2bx * q4 + _2bz * q2) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + _2bx * q3 * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
+    s2 = _2q4 * (2.0f * q2q4 - _2q1q3 - ax) + _2q1 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * q2 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az) + _2bz * q4 * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (_2bx * q3 + _2bz * q1) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + (_2bx * q4 - _4bz * q2) * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
+    s3 = -_2q1 * (2.0f * q2q4 - _2q1q3 - ax) + _2q4 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * q3 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az) + (-_4bx * q3 - _2bz * q1) * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (_2bx * q2 + _2bz * q4) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + (_2bx * q1 - _4bz * q3) * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
+    s4 = _2q2 * (2.0f * q2q4 - _2q1q3 - ax) + _2q3 * (2.0f * q1q2 + _2q3q4 - ay) + (-_4bx * q4 + _2bz * q2) * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (-_2bx * q1 + _2bz * q3) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + _2bx * q2 * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
+    norm = sqrtf(s1 * s1 + s2 * s2 + s3 * s3 + s4 * s4);    // normalise step magnitude
+    norm = 1.0f/norm;
+    s1 *= norm;
+    s2 *= norm;
+    s3 *= norm;
+    s4 *= norm;
+
+    // Compute rate of change of quaternion
+    qDot1 = 0.5f * (-q2 * gx - q3 * gy - q4 * gz) - quat->beta * s1;
+    qDot2 = 0.5f * (q1 * gx + q3 * gz - q4 * gy) - quat->beta * s2;
+    qDot3 = 0.5f * (q1 * gy - q2 * gz + q4 * gx) - quat->beta * s3;
+    qDot4 = 0.5f * (q1 * gz + q2 * gy - q3 * gx) - quat->beta * s4;
+
+    // Integrate to yield quaternion
+    q1 += qDot1 * deltat;
+    q2 += qDot2 * deltat;
+    q3 += qDot3 * deltat;
+    q4 += qDot4 * deltat;
+    
+    norm = sqrtf(q1 * q1 + q2 * q2 + q3 * q3 + q4 * q4);    // normalise quaternion
+    norm = 1.0f/norm;
+    quat->q[0] = q1 * norm;
+    quat->q[1] = q2 * norm;
+    quat->q[2] = q3 * norm;
+    quat->q[3] = q4 * norm;
+}
+
+void ToEulerAngles(madgwick_ahrs_t *quat,MPU6050_t *DataStruct) {
+
+    //w = 0, x = 1, y =2, z = 3    
+
+    // roll (x-axis rotation)
+    double sinr_cosp = 2 * (quat->q[0] * quat->q[1] + quat->q[2] * quat->q[3]);
+    double cosr_cosp = 1 - 2 * (quat->q[1] * quat->q[1] + quat->q[2] * quat->q[2]);
+    DataStruct->roll = atan2(sinr_cosp, cosr_cosp);
+
+    // pitch (y-axis rotation)
+    double sinp = 2 * (quat->q[0] * quat->q[2] - quat->q[3] * quat->q[1]);
+    if (fabs(sinp) >= 1)
+        DataStruct->pitch = copysign(M_PI / 2, sinp); // use 90 degrees if out of range
+    else
+        DataStruct->pitch = asin(sinp);
+
+    // yaw (z-axis rotation)
+    double siny_cosp = 2 * (quat->q[0] * quat->q[3] + quat->q[1] * quat->q[2]);
+    double cosy_cosp = 1 - 2 * (quat->q[2] * quat->q[2] + quat->q[3] * quat->q[3]);
+    DataStruct->yaw = atan2(siny_cosp, cosy_cosp) ;
+
+    DataStruct->yaw += 0.8;
+    if (DataStruct->yaw > PI) {
+        DataStruct->yaw -= 2 * PI;
+    }
+
 
 }
 
@@ -446,6 +676,3 @@ double Kalman_getAngle(Kalman_t *Kalman, double newAngle, double newRate, double
 //     gpio_put(ledPin,1);
 //     printf("Arm sequence complete!\n");
 // }
-
-
-
