@@ -14,9 +14,6 @@ const uint16_t i2c_timeout = 100;
 const double Accel_Z_corrector = 14418.0;
 uint32_t timer;
 
-
-
-
 Kalman_t KalmanX = {
     .Q_angle = 0.001f,
     .Q_bias = 0.003f,
@@ -28,7 +25,6 @@ Kalman_t KalmanY = {
     .Q_bias = 0.003f,
     .R_measure = 0.03f,
 };
-
 
 void i2c_initialisation(i2c_inst_t *port,uint freq){
 // I2C Initialisation. Using it at 400Khz.
@@ -127,24 +123,26 @@ void read_controller_data_structure(uart_inst_t* uart_port, controller_vars *cda
 }
 
 void PIDStruct(pid_vars *pid){
-    double dt, dE;
+    double dt, dE, FdE;
     uint64_t currTime = time_us_64();
-
     pid->E = pid->sp-pid->pv;
+
+    pid->filteredE = (1 - pid->alpha) * pid->filteredE + pid->alpha * pid->E;
 
     dt = (currTime-pid->prevTime)/1000000.0;
     if (dt < 0.000001) {dt = 0.000001;}   
-    dE = pid->E - pid->prevE;
+    // dE = pid->E - pid->prevE;
+    FdE = pid->filteredE - pid->prevfilteredE;
 
     pid->P = pid->Kp*(pid->E);
 
-    if(pid->pulse > 0 && pid->pulse < pid->max){
-        pid->I += pid->Ki*pid->E*dt;
-    }
+    if(pid->pulse > 0 && pid->pulse < pid->max){pid->I += pid->Ki*pid->E*dt;}
 
-    double Derivative = dE / dt;
+    //double Derivative = dE / dt;
+    double FDeriv = FdE/dt;
+    
     // r = smoothing factor for lowpass filter on derivative term
-    pid->filterD = pid->filterD * (1.0 - pid->r) + pid->r * Derivative;
+    pid->filterD = pid->filterD * (1.0 - pid->r) + pid->r * FDeriv;
     
     pid->D = pid->Kd*pid->filterD;
     
@@ -152,9 +150,9 @@ void PIDStruct(pid_vars *pid){
 
     pid->prevTime = currTime;
     pid->prevE = pid->E;
+    pid->prevfilteredE = pid->filteredE;
 
 }
-
 
 //ICM20948 Functions
 

@@ -205,6 +205,14 @@ typedef struct {
     int max;
     float r;
 
+
+    float alpha;
+    float filteredE;
+    float prevfilteredE;
+
+    float pvFilt;       // the filtered angle, for D only
+    float prevPvFilt;   // last‐loop filtered angle, for derivative
+
 } pid_vars;
 
 //struct to hold controller data

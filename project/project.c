@@ -41,7 +41,7 @@ int main() {
     pwm_initialisation(M3_pin,0,125);
     pwm_initialisation(M4_pin,0,125);
 
-    sleep_ms(2000);
+    sleep_ms(300);
 
     uint sliceM1 = pwm_gpio_to_slice_num(M1_pin);
     uint sliceM2 = pwm_gpio_to_slice_num(M2_pin);
@@ -63,7 +63,7 @@ int main() {
     printf("calibrated mag: %d %d %d\n", data.mag_bias[0], data.mag_bias[1], data.mag_bias[2]);
 
     sleep_ms(500);
-    int interval = 250000; 
+    int interval = 100000; 
 
     uint32_t ledCurr = time_us_32();
     uint32_t ledPrev = 0;
@@ -75,19 +75,19 @@ int main() {
     int mmax = 200;
     int mmin = 125;
 
-    roll.Kp = 1.1;
-    roll.Kd = 0.8;
-    roll.Ki = 0;
+    // roll.Kp = 0.7;
+    // roll.Kd = 1.5;
+    // roll.Ki = 0;
 
-//     roll.Kp = 0;  
-//     roll.Kd = 0;
-//     roll.Ki = 0;
+    roll.Kp = 0.2;  
+    roll.Kd = 0;
+    roll.Ki = 0;
 
 //     pitch.Kp = 1.068;
 //     pitch.Kd = 0.006192;
 //     pitch.Ki = 1.919;
 
-    pitch.Kp = 0;
+    pitch.Kp = 0.2;
     pitch.Kd = 0;
     pitch.Ki = 0;
 
@@ -100,6 +100,7 @@ int main() {
     yaw.Ki = 0;
 
     roll.r = pitch.r = 0.1;
+    roll.alpha = pitch.alpha = 0.3;
 
     yaw.r = 0.001;
 
@@ -111,6 +112,11 @@ int main() {
     float time_former = 0;
     float deltat = 0;
 
+    float roll_gcomp = 0;
+    float rollphi = 0;
+    float Kg = 1;
+    float mmin_comp, gCompFactor; 
+    float pitchRad, rollRad;
 
     while (true) {
         
@@ -138,10 +144,26 @@ int main() {
         PIDStruct(&pitch);
         PIDStruct(&yaw);
 
-        m1 = mmin - pitch.pulse - roll.pulse - yaw.pulse;   // Front left motor 
-        m3 = mmin - pitch.pulse + roll.pulse + yaw.pulse;   // Front right motor 
-        m2 = mmin + pitch.pulse - roll.pulse + yaw.pulse;   // Back left motor
-        m4 = mmin + pitch.pulse + roll.pulse - yaw.pulse;   // Back right motor
+
+        // rollphi = roll.pv*M_PI/180;
+        // roll_gcomp = sinf(rollphi);
+
+        rollRad  = roll.pv  * (M_PI / 180.0f);
+        pitchRad = pitch.pv * (M_PI / 180.0f);
+        gCompFactor = 1.0f / (cosf(rollRad) * cosf(pitchRad));
+
+        mmin_comp = 120 * gCompFactor;
+
+        // m1 = mmin - pitch.pulse - roll.pulse - yaw.pulse;   // Front left motor 
+        // m3 = mmin - pitch.pulse + roll.pulse + yaw.pulse;   // Front right motor 
+        // m2 = mmin + pitch.pulse - roll.pulse + yaw.pulse;   // Back left motor
+        // m4 = mmin + pitch.pulse + roll.pulse - yaw.pulse;   // Back right motor
+        
+        m1 = mmin_comp - pitch.pulse - roll.pulse - yaw.pulse;   // Front left motor 
+        m3 = mmin_comp - pitch.pulse + roll.pulse + yaw.pulse;   // Front right motor 
+        m2 = mmin_comp + pitch.pulse - roll.pulse + yaw.pulse;   // Back left motor
+        m4 = mmin_comp + pitch.pulse + roll.pulse - yaw.pulse;   // Back right motor
+
 
         if(m1 > mmax) { m1 = mmax; }
         if(m1 < mmin) { m1 = mmin; }
