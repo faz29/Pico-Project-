@@ -132,17 +132,25 @@ void PIDStruct(pid_vars *pid){
     dt = (currTime-pid->prevTime)/1000000.0;
     if (dt < 0.000001) {dt = 0.000001;}   
     // dE = pid->E - pid->prevE;
-    FdE = pid->filteredE - pid->prevfilteredE;
+    // FdE = pid->filteredE - pid->prevfilteredE;
 
     pid->P = pid->Kp*(pid->E);
 
-    if(pid->pulse > 0 && pid->pulse < pid->max){pid->I += pid->Ki*pid->E*dt;}
+    pid->I += pid->Ki*pid->E*dt;
+
+    if(pid->I < -30){pid->I = -30;}
+    if(pid->I > 30){pid->I = 30;}
 
     //double Derivative = dE / dt;
-    double FDeriv = FdE/dt;
-    
+
+    //double FDeriv = FdE/dt;
+    // double gyroD = pid->Kd*pid->gyropv; 
+
     // r = smoothing factor for lowpass filter on derivative term
-    pid->filterD = pid->filterD * (1.0 - pid->r) + pid->r * FDeriv;
+    //pid->filterD = pid->filterD * (1.0 - pid->r) + pid->r * FDeriv;
+
+    pid->filterD = pid->filterD * (1.0 - pid->r) + pid->r * pid->gyropv;
+
     
     pid->D = pid->Kd*pid->filterD;
     
@@ -289,6 +297,7 @@ void icm20948_Read_All(MPU6050_t *DataStruct, icm20948_config_t *config, icm2098
     DataStruct->Ax = DataStruct->Accel_X_RAW / 16384.0f;
     DataStruct->Ay = DataStruct->Accel_Y_RAW / 16384.0f;
     DataStruct->Az = DataStruct->Accel_Z_RAW / 16384.0f;
+    
     DataStruct->Gx = DataStruct->Gyro_X_RAW / 131.0f;
     DataStruct->Gy = DataStruct->Gyro_Y_RAW / 131.0f;
     DataStruct->Gz = DataStruct->Gyro_Z_RAW / 131.0f;

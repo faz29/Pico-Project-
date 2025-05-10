@@ -202,6 +202,9 @@ typedef struct {
     double filterD;
     double pv;
     double sp;
+
+    double gyropv;
+    
     int max;
     float r;
 
@@ -209,10 +212,6 @@ typedef struct {
     float alpha;
     float filteredE;
     float prevfilteredE;
-
-    float pvFilt;       // the filtered angle, for D only
-    float prevPvFilt;   // last‐loop filtered angle, for derivative
-
 } pid_vars;
 
 //struct to hold controller data

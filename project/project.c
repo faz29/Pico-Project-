@@ -29,19 +29,23 @@ int main() {
     pid_vars roll = {0};
     pid_vars pitch = {0};     
 
+    pid_vars yawrate = {0};
+    pid_vars rollrate = {0};
+    pid_vars pitchrate = {0};
+
     stdio_init_all();
     
     i2c_initialisation(I2C_PORT,400*1000);
 
     uart_initialisation(UART_PORT,BAUD_RATE, UART_TX, UART_RX,8, 1);
     
-    sleep_ms(100);
+    sleep_ms(10);
     pwm_initialisation(M1_pin,0,125);
     pwm_initialisation(M2_pin,0,125);
     pwm_initialisation(M3_pin,0,125);
     pwm_initialisation(M4_pin,0,125);
 
-    sleep_ms(300);
+    sleep_ms(2000);
 
     uint sliceM1 = pwm_gpio_to_slice_num(M1_pin);
     uint sliceM2 = pwm_gpio_to_slice_num(M2_pin);
@@ -62,7 +66,7 @@ int main() {
     printf("calibrated gyro: %d %d %d\n", data.gyro_bias[0], data.gyro_bias[1], data.gyro_bias[2]);
     printf("calibrated mag: %d %d %d\n", data.mag_bias[0], data.mag_bias[1], data.mag_bias[2]);
 
-    sleep_ms(500);
+    sleep_ms(20);
     int interval = 100000; 
 
     uint32_t ledCurr = time_us_32();
@@ -72,35 +76,34 @@ int main() {
     double m1, m2, m3, m4;
     m1 = m2 = m3 = m4 = 0;
 
-    int mmax = 200;
-    int mmin = 125;
+    int mmax = 210;
+    int mmin = 130  ;
 
-    // roll.Kp = 0.7;
-    // roll.Kd = 1.5;
-    // roll.Ki = 0;
-
-    roll.Kp = 0.2;  
-    roll.Kd = 0;
+    roll.Kp = 5.5;
+    roll.Kd = 1.3;
     roll.Ki = 0;
 
-//     pitch.Kp = 1.068;
-//     pitch.Kd = 0.006192;
-//     pitch.Ki = 1.919;
+    // roll.Kp = 0;   
+    // roll.Kd = 0;
+    // roll.Ki = 0;
 
-    pitch.Kp = 0.2;
-    pitch.Kd = 0;
+    pitch.Kp = 5.7;
+    pitch.Kd = 1.5;
     pitch.Ki = 0;
 
     // yaw.Kp = 0.7447;
     // yaw.Kd = 0.004319;   
-    // yaw.Ki = 1.339;
+    // yaw.Ki = 1.339
 
     yaw.Kp = 0;
     yaw.Kd = 0;   
     yaw.Ki = 0;
 
-    roll.r = pitch.r = 0.1;
-    roll.alpha = pitch.alpha = 0.3;
+    roll.r = 1.0;
+//    roll.alpha = 0.95;
+    pitch.r = 1.0;
+    // pitch.r = 0.175;
+    // pitch.alpha = 0.55;
 
     yaw.r = 0.001;
 
@@ -112,16 +115,10 @@ int main() {
     float time_former = 0;
     float deltat = 0;
 
-    float roll_gcomp = 0;
-    float rollphi = 0;
-    float Kg = 1;
-    float mmin_comp, gCompFactor; 
-    float pitchRad, rollRad;
-
     while (true) {
-        
-        //loop poll timer
-        //poll_start = time_us_32();
+         
+        // loop poll timer
+        // poll_start = time_us_32();
 
         icm20948_Read_All(&MPU6050,&config,&data);
     
@@ -140,30 +137,21 @@ int main() {
         pitch.pv = MPU6050.KLMpitch;        
         yaw.pv = MPU6050.yaw;
 
+        roll.gyropv = -MPU6050.Gx;  
+        pitch.gyropv = -MPU6050.Gy;
+        yaw.gyropv = -MPU6050.Gz;
+
+        // rollrate.pv = MPU6050.Gx;
+        // pitchrate.pv = MPU6050.Gy;
+
         PIDStruct(&roll);
         PIDStruct(&pitch);
         PIDStruct(&yaw);
 
-
-        // rollphi = roll.pv*M_PI/180;
-        // roll_gcomp = sinf(rollphi);
-
-        rollRad  = roll.pv  * (M_PI / 180.0f);
-        pitchRad = pitch.pv * (M_PI / 180.0f);
-        gCompFactor = 1.0f / (cosf(rollRad) * cosf(pitchRad));
-
-        mmin_comp = 120 * gCompFactor;
-
-        // m1 = mmin - pitch.pulse - roll.pulse - yaw.pulse;   // Front left motor 
-        // m3 = mmin - pitch.pulse + roll.pulse + yaw.pulse;   // Front right motor 
-        // m2 = mmin + pitch.pulse - roll.pulse + yaw.pulse;   // Back left motor
-        // m4 = mmin + pitch.pulse + roll.pulse - yaw.pulse;   // Back right motor
-        
-        m1 = mmin_comp - pitch.pulse - roll.pulse - yaw.pulse;   // Front left motor 
-        m3 = mmin_comp - pitch.pulse + roll.pulse + yaw.pulse;   // Front right motor 
-        m2 = mmin_comp + pitch.pulse - roll.pulse + yaw.pulse;   // Back left motor
-        m4 = mmin_comp + pitch.pulse + roll.pulse - yaw.pulse;   // Back right motor
-
+        m1 = mmin - pitch.pulse - roll.pulse - yaw.pulse;   // Front left motor 
+        m3 = mmin - pitch.pulse + roll.pulse + yaw.pulse;   // Front right motor 
+        m2 = mmin + pitch.pulse - roll.pulse + yaw.pulse;   // Back left motor
+        m4 = mmin + pitch.pulse + roll.pulse - yaw.pulse;   // Back right motor
 
         if(m1 > mmax) { m1 = mmax; }
         if(m1 < mmin) { m1 = mmin; }
@@ -209,20 +197,13 @@ int main() {
 
 // printf("\nM1: enter pulse width between 125 and 250 us");
 // scanf("%d",&pwm);
-
 // pwm_set_chan_level(sliceM1,0,pwm);
-
 // printf("\nM2: enter pulse width between 125 and 250 us");
 // scanf("%d",&pwm);
-
 // pwm_set_chan_level(sliceM2,0,pwm);
-
 // printf("\nM3: enter pulse width between 125 and 250 us");
 // scanf("%d",&pwm);
-
-
 // pwm_set_chan_level(sliceM3,0,pwm);
-
 // printf("\nM4: enter pulse width between 125 and 250 us");
 // scanf("%d",&pwm);
 // pwm_set_chan_level(sliceM4,0,pwm);
