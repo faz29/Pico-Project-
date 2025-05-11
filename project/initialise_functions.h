@@ -204,14 +204,7 @@ typedef struct {
     double sp;
 
     double gyropv;
-    
-    int max;
     float r;
-
-
-    float alpha;
-    float filteredE;
-    float prevfilteredE;
 } pid_vars;
 
 //struct to hold controller data

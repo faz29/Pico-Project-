@@ -127,12 +127,8 @@ void PIDStruct(pid_vars *pid){
     uint64_t currTime = time_us_64();
     pid->E = pid->sp-pid->pv;
 
-    pid->filteredE = (1 - pid->alpha) * pid->filteredE + pid->alpha * pid->E;
-
     dt = (currTime-pid->prevTime)/1000000.0;
     if (dt < 0.000001) {dt = 0.000001;}   
-    // dE = pid->E - pid->prevE;
-    // FdE = pid->filteredE - pid->prevfilteredE;
 
     pid->P = pid->Kp*(pid->E);
 
@@ -141,25 +137,14 @@ void PIDStruct(pid_vars *pid){
     if(pid->I < -30){pid->I = -30;}
     if(pid->I > 30){pid->I = 30;}
 
-    //double Derivative = dE / dt;
-
-    //double FDeriv = FdE/dt;
-    // double gyroD = pid->Kd*pid->gyropv; 
-
-    // r = smoothing factor for lowpass filter on derivative term
-    //pid->filterD = pid->filterD * (1.0 - pid->r) + pid->r * FDeriv;
-
     pid->filterD = pid->filterD * (1.0 - pid->r) + pid->r * pid->gyropv;
 
-    
     pid->D = pid->Kd*pid->filterD;
     
     pid->pulse = pid->P + pid->I + pid->D;
 
     pid->prevTime = currTime;
     pid->prevE = pid->E;
-    pid->prevfilteredE = pid->filteredE;
-
 }
 
 //ICM20948 Functions

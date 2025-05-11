@@ -91,21 +91,13 @@ int main() {
     pitch.Kd = 1.5;
     pitch.Ki = 0;
 
-    // yaw.Kp = 0.7447;
-    // yaw.Kd = 0.004319;   
-    // yaw.Ki = 1.339
-
     yaw.Kp = 0;
-    yaw.Kd = 0;   
+    yaw.Kd = 0;     
     yaw.Ki = 0;
 
     roll.r = 1.0;
-//    roll.alpha = 0.95;
     pitch.r = 1.0;
-    // pitch.r = 0.175;
-    // pitch.alpha = 0.55;
-
-    yaw.r = 0.001;
+    yaw.r = 1.0;
 
     float loop_speed, loop_time;
     uint32_t poll_start = 0;
@@ -140,9 +132,6 @@ int main() {
         roll.gyropv = -MPU6050.Gx;  
         pitch.gyropv = -MPU6050.Gy;
         yaw.gyropv = -MPU6050.Gz;
-
-        // rollrate.pv = MPU6050.Gx;
-        // pitchrate.pv = MPU6050.Gy;
 
         PIDStruct(&roll);
         PIDStruct(&pitch);
