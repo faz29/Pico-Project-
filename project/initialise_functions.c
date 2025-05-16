@@ -26,6 +26,7 @@ Kalman_t KalmanY = {
     .R_measure = 0.03f,
 };
 
+
 void i2c_initialisation(i2c_inst_t *port,uint freq){
 // I2C Initialisation. Using it at 400Khz.
     i2c_init(port, freq);
@@ -35,17 +36,7 @@ void i2c_initialisation(i2c_inst_t *port,uint freq){
     gpio_pull_up(MPU6050_SDA);
     gpio_pull_up(MPU6050_SCL);
 
-
-int P;
-    if (port==i2c0){
-       P = 0;
-    }
-    if (port==i2c1){
-       P = 1;
-    }
-
-    printf("I2C Initialised at %dkHz on port %p !!\n", freq/1000, port);
-
+    printf("I2C Initialised at %dkHz on port 0 !!\n", freq/1000);
 }
 
 void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin, int data_bits, int stop_bits){    
@@ -76,6 +67,7 @@ void pwm_initialisation(int pwm_pin,uint chan,int pulse_width){
     sleep_ms(100);
 }
 
+
 void led_on(int ledPin, bool state){
     gpio_init(ledPin);
     gpio_set_dir(ledPin,GPIO_OUT);
@@ -89,62 +81,62 @@ void read_controller_data_structure(uart_inst_t* uart_port, controller_vars *cda
     uint8_t controllerArray[25];   
 
     if (uart_is_readable(uart_port) == true){
-        // while (true) {
+
             led_on(7,true);
             uart_read_blocking(uart_port, check, 1);
             if (check[0] == 0xFF) {
-    //        }
         uart_read_blocking(uart_port, controllerArray, 24);
-        check[0] = cdata->throttle = cdata->brake = cdata->rx = cdata->ry = cdata->lx = cdata->ly = 0;
+        
+        check[0] = cdata->throttle = cdata->brake  
+                 = cdata->rx = cdata->ry = cdata->lx = cdata->ly = 0;
 
-        for (int j = 0; j<4; j++){
-            cdata->throttle += (controllerArray[j]<<(8*(3-j))); 
-            }
-        for (int j = 4; j<8; j++){
-            cdata->brake += (controllerArray[j]<<(8*(7-j)));
-        }
-
-        for (int j = 8; j<12; j++){
-            cdata->rx += (controllerArray[j]<<(8*(11-j)));
-        }
-        for (int j = 12; j<16; j++){
-            cdata->ry += (controllerArray[j]<<(8*(15-j)));
-        }
-        for (int j = 16; j<20; j++){
-            cdata->lx += (controllerArray[j]<<(8*(19-j)));
-        }
-        for (int j = 20; j<24; j++){
-            cdata->ly += (controllerArray[j]<<(8*(23-j)));
-        }
-    
+        for (int j = 0; j<4; j++){cdata->throttle += (controllerArray[j]<<(8*(3-j)));}
+        for (int j = 4; j<8; j++){cdata->brake += (controllerArray[j]<<(8*(7-j)));}
+        for (int j = 8; j<12; j++){cdata->rx += (controllerArray[j]<<(8*(11-j)));}
+        for (int j = 12; j<16; j++){cdata->ry += (controllerArray[j]<<(8*(15-j)));}
+        for (int j = 16; j<20; j++){cdata->lx += (controllerArray[j]<<(8*(19-j)));}
+        for (int j = 20; j<24; j++){cdata->ly += (controllerArray[j]<<(8*(23-j)));}    
 }
-}
-    
+}   
 }
 
 void PIDStruct(pid_vars *pid){
-    double dt, dE, FdE;
+    double dt;
     uint64_t currTime = time_us_64();
+    
+    //Calculate error
     pid->E = pid->sp-pid->pv;
 
+    //Find change in time
     dt = (currTime-pid->prevTime)/1000000.0;
     if (dt < 0.000001) {dt = 0.000001;}   
 
+    //Proportional part thrust
     pid->P = pid->Kp*(pid->E);
 
+    //Intergral part thrust
     pid->I += pid->Ki*pid->E*dt;
 
+    //Locks intergral part contribution so it doesn't infinitly build
     if(pid->I < -30){pid->I = -30;}
     if(pid->I > 30){pid->I = 30;}
 
+    //Low pass filter to remove noise
     pid->filterD = pid->filterD * (1.0 - pid->r) + pid->r * pid->gyropv;
-
+    //Derivative part thrust
     pid->D = pid->Kd*pid->filterD;
     
-    pid->pulse = pid->P + pid->I + pid->D;
+    //clamps D term so if the changing degrees is small it doesnt react
+    if (pid->gyropv < 15 && pid->gyropv > -15){pid->D=0;}
 
+    //summs the parts together to get final pulse
+    pid->pulse = pid->P + pid->I + pid->D;
+    //if the error
+    if (fabs(pid->E)< 1){pid->pulse = 0;}
+    
     pid->prevTime = currTime;
     pid->prevE = pid->E;
+
 }
 
 //ICM20948 Functions
@@ -241,7 +233,7 @@ int icm20948_init(icm20948_config_t *config) {
     return 0;
 }
 
-void icm20948_Read_All(MPU6050_t *DataStruct, icm20948_config_t *config, icm20984_data_t *data){
+void icm20948_Read_All(MPU6050_t *DataStruct, icm20948_config_t *config, icm20984_data_t *data, float ms[3][3]){
     uint8_t buf[6];
     int16_t accel[3], gyro[3], mag[3];
 
@@ -267,6 +259,10 @@ void icm20948_Read_All(MPU6050_t *DataStruct, icm20948_config_t *config, icm2098
 
     for (int i = 0; i < 3; i++) mag[i] = (buf[(i * 2) + 1] << 8 | buf[(i * 2)]);
     for (uint8_t i = 0; i < 3; i++) mag[i] -= data->mag_bias[i];
+    mag[0] = ms[0][0]*mag[0] + ms[0][1]*mag[1] + ms[0][2]*mag[2];
+    mag[1] = ms[1][0]*mag[0] + ms[1][1]*mag[1] + ms[1][2]*mag[2];
+    mag[2] = ms[2][0]*mag[0] + ms[2][1]*mag[1] + ms[2][2]*mag[2];
+
 
     DataStruct->Accel_X_RAW = (int16_t)(accel[0]);
     DataStruct->Accel_Y_RAW = (int16_t)(accel[1]);
@@ -282,14 +278,13 @@ void icm20948_Read_All(MPU6050_t *DataStruct, icm20948_config_t *config, icm2098
     DataStruct->Ax = DataStruct->Accel_X_RAW / 16384.0f;
     DataStruct->Ay = DataStruct->Accel_Y_RAW / 16384.0f;
     DataStruct->Az = DataStruct->Accel_Z_RAW / 16384.0f;
-    
     DataStruct->Gx = DataStruct->Gyro_X_RAW / 131.0f;
     DataStruct->Gy = DataStruct->Gyro_Y_RAW / 131.0f;
     DataStruct->Gz = DataStruct->Gyro_Z_RAW / 131.0f;
 
     DataStruct->Mx = DataStruct->Mag_X_RAW * 0.15f;
-    DataStruct->My = DataStruct->Mag_Y_RAW * 0.15f;
-    DataStruct->Mz = DataStruct->Mag_Z_RAW * 0.15f;
+    DataStruct->My =  (DataStruct-> Mag_Y_RAW * 0.15f);
+    DataStruct->Mz =  (DataStruct-> Mag_Z_RAW * 0.15f);
 
     double dt = (double) (time_us_32()-timer)/1E6;
     timer = time_us_32();
@@ -326,7 +321,7 @@ void icm20948_cal_gyro(icm20948_config_t *config, int16_t gyro_bias[3]) {
         }
         sleep_ms(25);
     }
-    for (uint8_t i = 0; i < 3; i++) gyro_bias[i] = (int16_t)(bias[i] / 200);
+    for (uint8_t i = 0; i < 3; i++) gyro_bias[i] = (int16_t)(bias[i] / 100);
     
     return;
 }
@@ -343,7 +338,7 @@ void icm20948_cal_accel(icm20948_config_t *config, int16_t accel_bias[3]) {
         }
         sleep_ms(25);
     }
-    for (uint8_t i = 0; i < 3; i++) accel_bias[i] = (int16_t)(bias[i] / 200);
+    for (uint8_t i = 0; i < 3; i++) accel_bias[i] = (int16_t)(bias[i] / 100);
     return;
 }
 
@@ -361,7 +356,6 @@ void icm20948_cal_mag_simple(icm20948_config_t *config, int16_t mag_bias[3]) {
         sleep_ms(10);
     }
     for (uint8_t i = 0; i < 3; i++) mag_bias[i] = (max[i] + min[i]) / 2;
-    return;
 }
 
 
@@ -413,8 +407,7 @@ void icm20948_read_raw_mag(icm20948_config_t *config, int16_t mag[3]) {
 }
 
 double Kalman_getAngle(Kalman_t *Kalman, double newAngle, double newRate, double dt){
-
-
+    
     double rate = newRate - Kalman->bias;
     Kalman->angle += dt * rate;
 
@@ -455,6 +448,7 @@ void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, 
     float hx, hy, _2bx, _2bz;
     float s1, s2, s3, s4;
     float qDot1, qDot2, qDot3, qDot4;
+    static float gbx=0, gby=0, gbz=0;
 
 
     // Convert gyroscope degrees/sec to radians/sec
@@ -475,6 +469,7 @@ void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, 
     float _2q4 = 2.0f * q4;
     float _2q1q3 = 2.0f * q1 * q3;
     float _2q3q4 = 2.0f * q3 * q4;
+    
     float q1q1 = q1 * q1;
     float q1q2 = q1 * q2;
     float q1q3 = q1 * q3;
@@ -503,8 +498,10 @@ void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, 
     _2q1my = 2.0f * q1 * my;
     _2q1mz = 2.0f * q1 * mz;
     _2q2mx = 2.0f * q2 * mx;
+
     hx = mx * q1q1 - _2q1my * q4 + _2q1mz * q3 + mx * q2q2 + _2q2 * my * q3 + _2q2 * mz * q4 - mx * q3q3 - mx * q4q4;
     hy = _2q1mx * q4 + my * q1q1 - _2q1mz * q2 + _2q2mx * q3 - my * q2q2 + my * q3q3 + _2q3 * mz * q4 - my * q4q4;
+    
     _2bx = sqrtf(hx * hx + hy * hy);
     _2bz = -_2q1mx * q3 + _2q1my * q2 + mz * q1q1 + _2q2mx * q4 - mz * q2q2 + _2q3 * my * q4 - mz * q3q3 + mz * q4q4;
     _4bx = 2.0f * _2bx;
@@ -515,12 +512,31 @@ void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, 
     s2 = _2q4 * (2.0f * q2q4 - _2q1q3 - ax) + _2q1 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * q2 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az) + _2bz * q4 * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (_2bx * q3 + _2bz * q1) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + (_2bx * q4 - _4bz * q2) * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
     s3 = -_2q1 * (2.0f * q2q4 - _2q1q3 - ax) + _2q4 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * q3 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az) + (-_4bx * q3 - _2bz * q1) * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (_2bx * q2 + _2bz * q4) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + (_2bx * q1 - _4bz * q3) * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
     s4 = _2q2 * (2.0f * q2q4 - _2q1q3 - ax) + _2q3 * (2.0f * q1q2 + _2q3q4 - ay) + (-_4bx * q4 + _2bz * q2) * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (-_2bx * q1 + _2bz * q3) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + _2bx * q2 * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
-    norm = sqrtf(s1 * s1 + s2 * s2 + s3 * s3 + s4 * s4);    // normalise step magnitude
+    
+    // normalise step magnitude
+    norm = sqrtf(s1 * s1 + s2 * s2 + s3 * s3 + s4 * s4);    
     norm = 1.0f/norm;
     s1 *= norm;
     s2 *= norm;
     s3 *= norm;
     s4 *= norm;
+
+    gbx += quat->zeta * s1 * deltat;
+    gby += quat->zeta * s2 * deltat;    
+
+    if (fabsf(s3) > 0.01f) {
+    gbz += quat->zeta * s3 * deltat;
+    } else {
+    gbz += quat->zeta * s3 * deltat;
+    }
+
+    const float MAX_BIAS = 1.0f;  
+    if (gbz >  MAX_BIAS) gbz =  MAX_BIAS;
+    if (gbz < -MAX_BIAS) gbz = -MAX_BIAS;
+
+    gx -= gbx;
+    gy -= gby;
+    gz -= gbz;
 
     // Compute rate of change of quaternion
     qDot1 = 0.5f * (-q2 * gx - q3 * gy - q4 * gz) - quat->beta * s1;
@@ -542,9 +558,11 @@ void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, 
     quat->q[3] = q4 * norm;
 }
 
+
 void ToEulerAngles(madgwick_ahrs_t *quat,MPU6050_t *DataStruct) {
 
     //w = 0, x = 1, y =2, z = 3    
+    static float prevYaw = 0;
 
     // roll (x-axis rotation)
     double sinr_cosp = 2 * (quat->q[0] * quat->q[1] + quat->q[2] * quat->q[3]);
@@ -563,13 +581,197 @@ void ToEulerAngles(madgwick_ahrs_t *quat,MPU6050_t *DataStruct) {
     double cosy_cosp = 1 - 2 * (quat->q[2] * quat->q[2] + quat->q[3] * quat->q[3]);
     DataStruct->yaw = atan2(siny_cosp, cosy_cosp) ;
 
-    DataStruct->yaw += 0.8;
+     if (DataStruct->yaw-prevYaw <= 0.0261799 && DataStruct->yaw-prevYaw >= -0.0261799 ) {
+        DataStruct->yaw  = prevYaw;
+    }
+
     if (DataStruct->yaw > PI) {
         DataStruct->yaw -= 2 * PI;
     }
 
-
+    //printf("\n%f\n",prevYaw);
+    prevYaw = DataStruct->yaw;
 }
+
+void MahonyQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float deltat, madgwick_ahrs_t *quat)
+{
+  // Vector to hold integral error for Mahony method
+  static float eInt[3] = {0.0, 0.0, 0.0};
+  // short name local variable for readability
+  float q1 = quat->q[0], q2 = quat->q[1], q3 = quat->q[2], q4 = quat->q[3];
+  float norm;
+  float hx, hy, hz;  //observed West horizon vector W = AxM
+  float ux, uy, uz, wx, wy, wz; //calculated A (Up) and W in body frame
+  float ex, ey, ez;
+  float pa, pb, pc;
+
+  float gxt = gx, gyt = gy, gzt = gz;
+
+     // Convert gyroscope degrees/sec to radians/sec
+	gxt *= 0.0174533f;
+	gyt *= 0.0174533f;
+	gzt *= 0.0174533f;
+
+  float Ki = 0, Kp = 0.05;
+
+  // Auxiliary variables to avoid repeated arithmetic
+  float q1q1 = q1 * q1;
+  float q1q2 = q1 * q2;
+  float q1q3 = q1 * q3;
+  float q1q4 = q1 * q4;
+  float q2q2 = q2 * q2;
+  float q2q3 = q2 * q3;
+  float q2q4 = q2 * q4;
+  float q3q3 = q3 * q3;
+  float q3q4 = q3 * q4;
+  float q4q4 = q4 * q4;
+
+  // Measured horizon vector = a x m (in body frame)
+  hx = ay * mz - az * my;
+  hy = az * mx - ax * mz;
+  hz = ax * my - ay * mx;
+  // Normalise horizon vector
+  norm = sqrt(hx * hx + hy * hy + hz * hz);
+  if (norm == 0.0f) return; // Handle div by zero
+
+  norm = 1.0f / norm;
+  hx *= norm;
+  hy *= norm;
+  hz *= norm;
+
+  // Estimated direction of Up reference vector
+  ux = 2.0f * (q2q4 - q1q3);
+  uy = 2.0f * (q1q2 + q3q4);
+  uz = q1q1 - q2q2 - q3q3 + q4q4;
+
+  // estimated direction of horizon (West) reference vector
+  wx = 2.0f * (q2q3 + q1q4);
+  wy = q1q1 - q2q2 + q3q3 - q4q4;
+  wz = 2.0f * (q3q4 - q1q2);
+
+  // Error is the summed cross products of estimated and measured directions of the reference vectors
+  // It is assumed small, so sin(theta) ~ theta IS the angle required to correct the orientation error.
+
+  ex = (ay * uz - az * uy) + (hy * wz - hz * wy);
+  ey = (az * ux - ax * uz) + (hz * wx - hx * wz);
+  ez = (ax * uy - ay * ux) + (hx * wy - hy * wx);
+
+  if (Ki > 0.0f)
+  {
+    eInt[0] += ex;      // accumulate integral error
+    eInt[1] += ey;
+    eInt[2] += ez;
+    // Apply I feedback
+    gx += Ki * eInt[0];
+    gy += Ki * eInt[1];
+    gz += Ki * eInt[2];
+  }
+
+
+  // Apply P feedback
+  gx = gx + Kp * ex;
+  gy = gy + Kp * ey;
+  gz = gz + Kp * ez;
+
+
+ //update quaternion with integrated contribution
+ // small correction 1/11/2022, see https://github.com/kriswiner/MPU9250/issues/447
+    gx = gx * (0.5*deltat); // pre-multiply common factors
+    gy = gy * (0.5*deltat);
+    gz = gz * (0.5*deltat);
+    float qa = q1;
+    float qb = q2;
+    float qc = q3;
+    q1 += (-qb * gx - qc * gy - q4 * gz);
+    q2 += (qa * gx + qc * gz - q4 * gy);
+    q3 += (qa * gy - qb * gz + q4 * gx);
+    q4 += (qa * gz + qb * gy - qc * gx);
+
+  // Normalise quaternion
+  norm = sqrt(q1 * q1 + q2 * q2 + q3 * q3 + q4 * q4);
+  norm = 1.0f / norm;
+  quat->q[0] = q1 * norm;
+  quat->q[1] = q2 * norm;
+  quat->q[2] = q3 * norm;
+  quat->q[3] = q4 * norm;
+}
+
+void KalmanInit(Kalman_2t *k, float dt, float h0, float w0) {
+    k->dt      = dt;
+    k->X[0]    = h0;       // initial heading
+    k->X[1]    = w0;       // initial bias guess
+    // initial covariance
+    k->P[0][0] = 0.001f; k->P[0][1] = 0.0f;
+    k->P[1][0] = 0.0f;    k->P[1][1] = 0.001f;
+    // state transition
+    k->A[0][0] = 1.0f;    k->A[0][1] = dt;
+    k->A[1][0] = 0.0f;    k->A[1][1] = 1.0f;
+    // process noise
+    k->Q[0][0] = 0.1f;    k->Q[0][1] = 0.0f;
+    k->Q[1][0] = 0.0f;    k->Q[1][1] = 0.1f;
+    // measurement noise
+    k->R[0][0] = 0.35f;    k->R[0][1] = 0.0f;
+    k->R[1][0] = 0.0f;    k->R[1][1] = 0.1f;
+}
+
+void KalmanPredict(Kalman_2t *k) {
+    // state prediction
+    float x0 = k->X[0], x1 = k->X[1];
+    k->X[0] = k->A[0][0]*x0 + k->A[0][1]*x1;
+    k->X[1] = k->A[1][0]*x0 + k->A[1][1]*x1;
+
+    // covariance prediction
+    float P00 = k->P[0][0], P01 = k->P[0][1],
+          P10 = k->P[1][0], P11 = k->P[1][1];
+    float A00 = k->A[0][0], A01 = k->A[0][1],
+          A10 = k->A[1][0], A11 = k->A[1][1];
+
+    float t00 = A00*P00 + A01*P10;
+    float t01 = A00*P01 + A01*P11;
+    float t10 = A10*P00 + A11*P10;
+    float t11 = A10*P01 + A11*P11;
+
+    k->P[0][0] = t00*A00 + t01*A01 + k->Q[0][0];
+    k->P[0][1] = t00*A10 + t01*A11 + k->Q[0][1];
+    k->P[1][0] = t10*A00 + t11*A01 + k->Q[1][0];
+    k->P[1][1] = t10*A10 + t11*A11 + k->Q[1][1];
+}
+
+void KalmanUpdate(Kalman_2t *k, float h_meas, float w_meas) {
+    // --- 1) Single-measurement update (heading only) ---
+
+    // 1a) Compute and wrap the heading innovation into [-180, +180]
+    float y = h_meas - k->X[0];
+    if      (y >  180.0f) y -= 360.0f;
+    else if (y < -180.0f) y += 360.0f;
+
+    // 1b) Compute Kalman gain K0, K1
+    //    Innovation covariance S = P00 + R
+    float S  = k->P[0][0] + k->R[0][0];
+    float K0 = k->P[0][0] / S;    // for heading state
+    float K1 = k->P[1][0] / S;    // for bias state
+
+    // 1c) Update state vector [heading; bias]
+    k->X[0] += K0 * y;            // fused heading
+    k->X[1] += K1 * y;            // learned gyro bias
+
+    // 1d) Wrap the heading state back into [-180, +180]
+    if      (k->X[0] >  180.0f) k->X[0] -= 360.0f;
+    else if (k->X[0] < -180.0f) k->X[0] += 360.0f;
+
+    // --- 2) Covariance update: P = (I - K·H)·P ---
+
+    // Here H = [1  0], so (I-KH) = [[1-K0,   0],
+    //                              [ -K1,    1]]
+    float P00 = k->P[0][0], P01 = k->P[0][1];
+    float P10 = k->P[1][0], P11 = k->P[1][1];
+
+    k->P[0][0] = (1.0f - K0)*P00;
+    k->P[0][1] = (1.0f - K0)*P01;
+    k->P[1][0] =   -K1   *P00 + P10;
+    k->P[1][1] =   -K1   *P01 + P11;
+}
+
 
 
 //============================================
@@ -652,15 +854,12 @@ void ToEulerAngles(madgwick_ahrs_t *quat,MPU6050_t *DataStruct) {
 
 // }
 
-
 // void esc_calibration(int pwm_pin,uint chan,int ledPin, int arm_sleep){
 //     uint slice = pwm_gpio_to_slice_num(pwm_pin);
 //     //arm sequence: zero throttle (125us), small delay, then full (250us), small delay then zero throttle.
-//     pwm_set_chan_level(slice,chan,125); 
+//     pwm_set_chan_level(slice,chan,250); 
 //     sleep_ms(arm_sleep); 
-//     pwm_set_chan_level(slice,chan,250);
-//     sleep_ms(arm_sleep);
-//     pwm_set_chan_level(slice,chan,125); 
+//     pwm_set_chan_level(slice,chan,125);
 
 //     //turn on Led when arming is complete
 //     gpio_init(ledPin);
@@ -668,3 +867,5 @@ void ToEulerAngles(madgwick_ahrs_t *quat,MPU6050_t *DataStruct) {
 //     gpio_put(ledPin,1);
 //     printf("Arm sequence complete!\n");
 // }
+
+

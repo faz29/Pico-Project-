@@ -188,23 +188,21 @@
 
 //struct to hold all the pid variables
 typedef struct {
-//make sure to iniitalise these values that need to be 0 in the main function
     double P;
-    double I;   //init 0
+    double I;   
     double D;
     double Kp;
     double Ki;
     double Kd;
-    double E;      //init 0
-    double prevE;   //init 0
-    double prevTime;    //init 0
-    double pulse;   //init 0
+    double E;      
+    double prevE;   
+    double prevTime;    
+    double pulse;   
     double filterD;
     double pv;
     double sp;
-
-    double gyropv;
     float r;
+    double gyropv;
 } pid_vars;
 
 //struct to hold controller data
@@ -240,11 +238,13 @@ typedef struct icm20984_data {
     int16_t gyro_bias[3];
     int16_t mag_raw[3];
     int16_t mag_bias[3];
+
     float temp_c;
 } icm20984_data_t;
 
 typedef struct madgwick_ahrs {
     volatile float beta;
+    volatile float zeta;
     volatile float q[4];
 } madgwick_ahrs_t;
 
@@ -281,8 +281,6 @@ typedef struct {
 
     double KLMroll;
     double KLMpitch;
-    double KLMyaw;
-
 
 } MPU6050_t;
 
@@ -296,6 +294,18 @@ typedef struct {
     double P[2][2];
 } Kalman_t;
 
+// Simple 2-state Kalman: X = [heading; gyro_bias]
+typedef struct {
+    float dt;         // time step
+    float X[2];       // state vector [angle; bias]
+    float P[2][2];    // error covariance matrix
+    float A[2][2];    // state transition matrix
+    float Q[2][2];    // process noise covariance
+    float R[2][2];    // measurement noise covariance
+    float K[2][2];    // Kalman gain
+} Kalman_2t;
+
+
 //====================================================================================================
 
 void i2c_initialisation(i2c_inst_t *port,uint freq);
@@ -303,6 +313,8 @@ void i2c_initialisation(i2c_inst_t *port,uint freq);
 void uart_initialisation(uart_inst_t*uart_port,int uart_Brate, int tx_pin, int rx_pin, int data, int stop);  
 
 void pwm_initialisation(int pwm_pin,uint chan,int pulse_width);
+
+// void esc_calibration(int pwm_pin,uint chan,int ledPin, int arm_sleep);
 
 void led_on(int ledPin, bool state);
 
@@ -318,22 +330,27 @@ void icm20948_cal_gyro(icm20948_config_t *config, int16_t gyro_bias[3]);
 
 void icm20948_cal_accel(icm20948_config_t *config, int16_t accel_bias[3]);
 
+void icm20948_cal_mag_simple(icm20948_config_t *config, int16_t mag_bias[3]);
+
 void icm20948_read_raw_accel(icm20948_config_t *config, int16_t accel[3]);
 
 void icm20948_read_raw_gyro(icm20948_config_t *config, int16_t gyro[3]);
 
 void icm20948_read_raw_mag(icm20948_config_t *config, int16_t mag[3]);
 
-void icm20948_Read_All(MPU6050_t *DataStruct,icm20948_config_t *config,icm20984_data_t *data);
+void icm20948_Read_All(MPU6050_t *DataStruct,icm20948_config_t *config,icm20984_data_t *data, float ms[3][3]);
 
 void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float deltat, madgwick_ahrs_t *quat);
 
 void ToEulerAngles(madgwick_ahrs_t *quat, MPU6050_t *DataStruct);
 
+void MahonyQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float deltat, madgwick_ahrs_t *quat);
 
+void KalmanPredict(Kalman_2t *k);
 
+void KalmanInit(Kalman_2t *k, float dt, float h0, float w0); 
 
-
+void KalmanUpdate(Kalman_2t *k, float h_meas, float w_meas);
 
 
 
